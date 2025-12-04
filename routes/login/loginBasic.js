@@ -50,12 +50,14 @@ export const register = async (event) => {
     // 3. Obtener roles y permisos (por defecto jugador al registrarse)
     const roles = await crud.getUserRoles(user.id);
     const permisos = await crud.getUserPermissions(user.id);
+    const clubes = await crud.getUserClubs(user.id);
 
     // 4. Construir respuesta
     const response = funciones.buildAuthResponse({
       user,
       roles,
       permisos,
+      clubes,
       accessToken,
       refreshToken,
       sessionId: session.id
@@ -118,12 +120,14 @@ export const login = async (event) => {
     // 3. Obtener roles y permisos
     const roles = await crud.getUserRoles(user.id);
     const permisos = await crud.getUserPermissions(user.id);
+    const clubes = await crud.getUserClubs(user.id);
 
     // 4. Construir respuesta
     const response = funciones.buildAuthResponse({
       user,
       roles,
       permisos,
+      clubes,
       accessToken,
       refreshToken,
       sessionId: session.id

@@ -26,6 +26,7 @@ export const crear = async (event) => {
         }
 
         const userId = getUserIdFromToken(event);
+        console.log("userId", userId)
         const body = JSON.parse(event.body);
         const { nombre, descripcion } = body;
 

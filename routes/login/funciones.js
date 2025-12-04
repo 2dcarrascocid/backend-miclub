@@ -146,6 +146,7 @@ export function buildAuthResponse({
   user,
   roles,
   permisos,
+  clubes,
   accessToken,
   refreshToken,
   sessionId,
@@ -154,6 +155,7 @@ export function buildAuthResponse({
     usuario: sanitizeUserData(user),
     roles,
     permisos,
+    clubes,
     tokens: {
       access_token: accessToken,
       refresh_token: refreshToken,

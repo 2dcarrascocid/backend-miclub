@@ -221,3 +221,13 @@ export async function registerLocalUser({ email, password, metadata }) {
 
   return user;
 }
+
+export async function getUserClubs(userId) {
+  const { data, error } = await supabase
+    .from("el_dep_clubes")
+    .select("*")
+    .eq("admin_id", userId);
+
+  if (error) return [];
+  return data;
+}
