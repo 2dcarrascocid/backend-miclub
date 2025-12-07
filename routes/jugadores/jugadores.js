@@ -1,6 +1,7 @@
 import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
+import { encodeNext, decodeNext } from '../../utils/pagination.js';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
 
@@ -40,7 +41,7 @@ export const crear = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
         const body = JSON.parse(event.body);
-        const { nombre_completo, rut, email, telefono, fecha_nacimiento, es_socio, usuario_id } = body;
+        const { nombre_completo, rut, email, telefono, fecha_nacimiento, es_socio, es_jugador, usuario_id } = body;
 
         if (!nombre_completo) {
             return {
@@ -57,6 +58,22 @@ export const crear = async (event) => {
             };
         }
 
+        let folio = null;
+        if (es_jugador) {
+            const { data: maxFolioData, error: maxFolioError } = await supabase
+                .from('el_dep_jugadores')
+                .select('folio')
+                .eq('club_id', clubId)
+                .not('folio', 'is', null)
+                .order('folio', { ascending: false })
+                .limit(1);
+
+            if (maxFolioError) throw maxFolioError;
+
+            const currentMax = maxFolioData.length > 0 ? maxFolioData[0].folio : 0;
+            folio = currentMax + 1;
+        }
+
         const { data, error } = await supabase
             .from('el_dep_jugadores')
             .insert([{
@@ -67,7 +84,9 @@ export const crear = async (event) => {
                 email,
                 telefono,
                 fecha_nacimiento,
-                es_socio: es_socio || false
+                es_socio: es_socio || false,
+                es_jugador: es_jugador || false,
+                folio
             }])
             .select()
             .single();
@@ -86,6 +105,8 @@ export const crear = async (event) => {
     }
 };
 
+
+
 export const listar = async (event) => {
     try {
         // Validar API Key
@@ -96,32 +117,46 @@ export const listar = async (event) => {
 
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
-
-        // Optional: Check ownership or membership. 
-        // Requirement says "El usuario basico puede tener acceso a visualizar todos los libros...", 
-        // but for players, usually only admin or the players themselves.
-        // Assuming for now only admin sees the full list or maybe members too.
-        // Let's enforce ownership for now as per "El admninistradoir puede administrar alta y baja de jugadores".
+        const { next } = event.queryStringParameters || {};
 
         const isOwner = await verifyClubOwnership(clubId, userId);
         if (!isOwner) {
-            // Maybe allow if user is part of the club? For now strict admin.
             return {
                 statusCode: 403,
                 body: JSON.stringify({ message: 'No tienes permisos para ver este club' }),
             };
         }
 
+        const limit = 10; // Fixed limit
+        const offset = next ? decodeNext(next)?.offset || 0 : 0;
+
+        // Get total count
+        const { count, error: countError } = await supabase
+            .from('el_dep_jugadores')
+            .select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId);
+
+        if (countError) throw countError;
+
+        // Get paginated data
         const { data, error } = await supabase
             .from('el_dep_jugadores')
             .select('*')
-            .eq('club_id', clubId);
+            .eq('club_id', clubId)
+            .range(offset, offset + limit - 1)
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
+        const nextToken = offset + limit < count ? encodeNext(offset + limit, limit) : null;
+
         return {
             statusCode: 200,
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+                data,
+                total_jugadores: count,
+                next: nextToken
+            }),
         };
     } catch (error) {
         return {

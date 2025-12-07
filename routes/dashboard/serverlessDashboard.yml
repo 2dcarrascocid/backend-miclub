@@ -1,0 +1,6 @@
+obtenerResumen:
+  handler: routes/dashboard/dashboard.obtenerResumen
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/dashboard/resumen
+        method: get
