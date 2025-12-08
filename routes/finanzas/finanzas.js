@@ -1,6 +1,7 @@
 import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
+import { encodeNext, decodeNext } from '../../utils/pagination.js';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
 
@@ -108,6 +109,7 @@ export const listarMovimientos = async (event) => {
 
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
+        const { next } = event.queryStringParameters || {};
 
         if (!await verifyClubAccess(clubId, userId)) {
             return {
@@ -116,17 +118,86 @@ export const listarMovimientos = async (event) => {
             };
         }
 
-        const { data, error } = await supabase
+        const limit = 10;
+        const offset = next ? decodeNext(next)?.offset || 0 : 0;
+
+        // Get total count
+        const { count, error: countError } = await supabase
+            .from('el_dep_movimientos_financieros')
+            .select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId);
+
+        if (countError) throw countError;
+
+        const { data: movimientos, error } = await supabase
             .from('el_dep_movimientos_financieros')
             .select('*')
             .eq('club_id', clubId)
-            .order('fecha_movimiento', { ascending: false });
+            .order('fecha_movimiento', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         if (error) throw error;
 
+        // Enrich with names
+        const playerIds = [...new Set(movimientos.map(m => m.jugador_id).filter(id => id))];
+        const registrarUserIds = [...new Set(movimientos.map(m => m.registrado_por).filter(id => id))];
+
+        let namesMap = {};
+
+        const promises = [];
+
+        if (playerIds.length > 0) {
+            promises.push(
+                supabase
+                    .from('el_dep_jugadores')
+                    .select('id, nombre_completo')
+                    .in('id', playerIds)
+                    .then(({ data }) => {
+                        if (data) data.forEach(p => namesMap[`player_${p.id}`] = p.nombre_completo);
+                    })
+            );
+        }
+
+        if (registrarUserIds.length > 0) {
+            promises.push(
+                supabase
+                    .from('el_dep_identidades')
+                    .select('id, metadata')
+                    .in('id', registrarUserIds)
+                    .then(({ data }) => {
+                        if (data) {
+                            data.forEach(u => {
+                                // User requested "metadata as nombre". 
+                                // metadata is JSONB. We try to extract a name if it's an object, or use it directly if it's a string.
+                                let name = u.metadata;
+                                if (typeof name === 'object' && name !== null) {
+                                    // Common patterns for user metadata
+                                    name = name.nombre_completo || name.nombre || name.name || name.full_name || JSON.stringify(name);
+                                }
+                                namesMap[`user_${u.id}`] = name;
+                            });
+                        }
+                    })
+            );
+        }
+
+        await Promise.all(promises);
+
+        const enrichedData = movimientos.map(m => ({
+            ...m,
+            jugador: m.jugador_id ? { nombre_completo: namesMap[`player_${m.jugador_id}`] || 'Desconocido' } : null,
+            registrado_por_nombre: namesMap[`user_${m.registrado_por}`] || 'Usuario sin nombre'
+        }));
+
+        const nextToken = offset + limit < count ? encodeNext(offset + limit, limit) : null;
+
         return {
             statusCode: 200,
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+                data: enrichedData,
+                total_registros: count,
+                next: nextToken
+            }),
         };
     } catch (error) {
         return {
@@ -207,6 +278,120 @@ export const cerrarMes = async (event) => {
         return {
             statusCode: 201,
             body: JSON.stringify(data),
+        };
+
+    } catch (error) {
+        return {
+            statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
+
+export const ingresarMovimientosPorLote = async (event) => {
+    try {
+        // Validar API Key
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) {
+            return apiKeyValidation.response;
+        }
+
+        const userId = getUserIdFromToken(event);
+        const { clubId } = event.pathParameters;
+        let body;
+        try {
+            body = JSON.parse(event.body);
+        } catch (e) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: 'Invalid JSON body' }),
+            };
+        }
+
+        // Validate body is an array
+        if (!Array.isArray(body)) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: 'Body must be an array of movements' }),
+            };
+        }
+
+        if (!await verifyClubAdmin(clubId, userId)) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ message: 'Solo el administrador puede ingresar movimientos por lote' }),
+            };
+        }
+
+        const movimientosParaInsertar = [];
+        const errores = [];
+
+        for (const [index, mov] of body.entries()) {
+            const { tipo, categoria, monto, descripcion, fecha_movimiento, jugador_id } = mov;
+
+            // Basic validation logic
+            // Requirements: validate fields. If invalid, set to null and report.
+            // However, "monto" and "tipo" are likely critical. 
+            // User said: "en el caso que un dato no este correctamente ingresado debe ingresar el campo en null y debolver en la respuesta los datos que no se ingresaron correctamente"
+            // If "tipo" or "monto" are null, database might reject if they are NOT NULL. 
+            // Assuming we follow instructions literally: set them to null.
+
+            const nuevoMovimiento = {
+                club_id: clubId,
+                registrado_por: userId,
+                tipo: tipo,
+                categoria: categoria,
+                monto: monto,
+                descripcion: descripcion,
+                fecha_movimiento: fecha_movimiento || new Date().toISOString(),
+                jugador_id: jugador_id
+            };
+
+            const camposConError = [];
+
+            // Validation Rules
+            if (!tipo || !['ingreso', 'egreso'].includes(tipo.toLowerCase())) {
+                nuevoMovimiento.tipo = null;
+                camposConError.push({ campo: 'tipo', valor: tipo, error: 'Requerido y debe ser ingreso o egreso' });
+            }
+            if (!monto || isNaN(Number(monto))) {
+                nuevoMovimiento.monto = null;
+                camposConError.push({ campo: 'monto', valor: monto, error: 'Requerido y debe ser numérico' });
+            }
+            // Optional validations can be added here, e.g. for categoria, jugador_id date format etc.
+
+            if (camposConError.length > 0) {
+                errores.push({ indice: index, datos_originales: mov, errores: camposConError });
+            }
+
+            movimientosParaInsertar.push(nuevoMovimiento);
+        }
+
+        // Insert individually or batch? 
+        // Supabase/PostgREST insert supports batch.
+        // However, if we insert a row with NULL in a NOT NULL column, the whole batch might fail or just that row depending on config.
+        // If the DB has constraints, NULLs will cause failure. 
+        // I will try to insert all. If it fails, I might need to return 500. 
+        // The user requirement "ingresar el campo en null" suggests the DB might allow it OR they want us to try.
+
+        const { data, error } = await supabase
+            .from('el_dep_movimientos_financieros')
+            .insert(movimientosParaInsertar)
+            .select();
+
+        if (error) {
+            // If error is about constraint violation (e.g. nulls in required fields), we bubble it up
+            throw error;
+        }
+
+        return {
+            statusCode: 201,
+            body: JSON.stringify({
+                message: 'Proceso completado',
+                items_ingresados: data.length,
+                detalles_errores_validacion: errores, // return info about what was set to null
+                data: data
+            }),
         };
 
     } catch (error) {

@@ -18,3 +18,10 @@ cerrarMes:
     - httpApi:
         path: /clubes/{clubId}/finanzas/cierre
         method: post
+
+ingresarMovimientosPorLote:
+  handler: routes/finanzas/finanzas.ingresarMovimientosPorLote
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/finanzas/movimientos/lote
+        method: post

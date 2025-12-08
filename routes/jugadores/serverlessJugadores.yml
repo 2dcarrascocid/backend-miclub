@@ -11,3 +11,10 @@ listarJugadores:
     - httpApi:
         path: /clubes/{clubId}/jugadores
         method: get
+
+buscarJugadores:
+  handler: routes/jugadores/jugadores.buscarJugadores
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/jugadores/buscar
+        method: get

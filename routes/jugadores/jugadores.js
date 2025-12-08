@@ -165,3 +165,53 @@ export const listar = async (event) => {
         };
     }
 };
+
+export const buscarJugadores = async (event) => {
+    try {
+        // Validar API Key
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) {
+            return apiKeyValidation.response;
+        }
+
+        const userId = getUserIdFromToken(event);
+        const { clubId } = event.pathParameters;
+        const { query } = event.queryStringParameters || {};
+
+        if (!query || query.length < 2) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: 'Debe ingresar al menos 2 caracteres para buscar' }),
+            };
+        }
+
+        const isOwner = await verifyClubOwnership(clubId, userId);
+        if (!isOwner) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ message: 'No tienes permisos para ver este club' }),
+            };
+        }
+
+        // Search logic: name, rut, phone
+        // Using ilike for case-insensitive partial match
+        const { data, error } = await supabase
+            .from('el_dep_jugadores')
+            .select('id, nombre_completo, rut, telefono, folio ')
+            .eq('club_id', clubId)
+            .or(`nombre_completo.ilike.%${query}%,rut.ilike.%${query}%,telefono.ilike.%${query}%`)
+            .limit(20);
+
+        if (error) throw error;
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(data),
+        };
+    } catch (error) {
+        return {
+            statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
