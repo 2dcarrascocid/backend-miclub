@@ -147,3 +147,37 @@ export const login = async (event) => {
     };
   }
 };
+
+export const logout = async (event) => {
+  try {
+    // Validar API Key
+    const apiKeyValidation = validateApiKey(event);
+    if (!apiKeyValidation.valid) {
+      return apiKeyValidation.response;
+    }
+
+    const body = JSON.parse(event.body);
+    const { sessionId } = body;
+
+    if (!sessionId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Session ID es obligatorio' }),
+      };
+    }
+
+    await crud.invalidateSession(sessionId);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Sesión cerrada exitosamente' }),
+    };
+
+  } catch (error) {
+    console.error("Logout Error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Error interno al cerrar sesión' }),
+    };
+  }
+};

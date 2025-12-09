@@ -1,6 +1,8 @@
-"En el proyecto backend, necesito modificar el servicio para el dashboard el cual debe tener la funcionalidad de: 
-contar jugadores activos por club
-contar socios que no son jugadores activos por club
+"En el proyecto backend, necesito Crear el endpoint para el obtener los datos financieros de un club. 
+
+El endpoint debe tener la funcionalidad de: 
+resumen de ingresos y egresos y el balance que es la difrencia entre ingresos y egresos
+
 
 Usa el stack: Node.js 20, Serverless Framework v4 y Supabase.
 Crea la definición en 

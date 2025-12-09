@@ -177,6 +177,18 @@ export async function createSession(sessionData) {
   return data;
 }
 
+export async function invalidateSession(sessionId) {
+  const { data, error } = await supabase
+    .from("el_dep_sesiones")
+    .update({ valido: false })
+    .eq("id", sessionId)
+    .select()
+    .single();
+
+  if (error) throw new Error("Error invalidando sesión: " + error.message);
+  return data;
+}
+
 /* -----------------------------------------
    🟢 OPERACIONES COMBINADAS
 ----------------------------------------- */

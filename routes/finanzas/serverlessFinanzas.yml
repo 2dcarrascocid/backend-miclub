@@ -25,3 +25,10 @@ ingresarMovimientosPorLote:
     - httpApi:
         path: /clubes/{clubId}/finanzas/movimientos/lote
         method: post
+
+resumenFinanciero:
+  handler: routes/finanzas/dashboard_finanzas.resumenFinanciero
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/finanzas/resumen
+        method: get

@@ -18,3 +18,10 @@ loginGoogle:
     - httpApi:
         path: /auth/google
         method: post
+
+logout:
+  handler: routes/login/loginBasic.logout
+  events:
+    - httpApi:
+        path: /auth/logout
+        method: post
