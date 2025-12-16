@@ -41,7 +41,7 @@ export const crear = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
         const body = JSON.parse(event.body);
-        const { nombre_completo, rut, email, telefono, fecha_nacimiento, es_socio, es_jugador, usuario_id } = body;
+        const { nombre_completo, rut, email, telefono, fecha_nacimiento, es_socio, es_jugador, usuario_id, path_foto } = body;
 
         if (!nombre_completo) {
             return {
@@ -86,7 +86,8 @@ export const crear = async (event) => {
                 fecha_nacimiento,
                 es_socio: es_socio || false,
                 es_jugador: es_jugador || false,
-                folio
+                folio,
+                path_foto
             }])
             .select()
             .single();
