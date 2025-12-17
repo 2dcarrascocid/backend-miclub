@@ -18,3 +18,10 @@ buscarJugadores:
     - httpApi:
         path: /clubes/{clubId}/jugadores/buscar
         method: get
+
+actualizarJugador:
+  handler: routes/jugadores/jugadores.actualizar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/jugadores/{id}
+        method: put

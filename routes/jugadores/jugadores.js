@@ -106,8 +106,6 @@ export const crear = async (event) => {
     }
 };
 
-
-
 export const listar = async (event) => {
     try {
         // Validar API Key
@@ -128,44 +126,65 @@ export const listar = async (event) => {
             };
         }
 
-        const limit = 10; // Fixed limit
+        const limit = 10;
         const offset = next ? decodeNext(next)?.offset || 0 : 0;
 
-        // Get total count
+        // Total
         const { count, error: countError } = await supabase
             .from('el_dep_jugadores')
             .select('*', { count: 'exact', head: true })
-            .eq('club_id', clubId);
+            .eq('club_id', clubId)
+            .eq('activo', true);
 
         if (countError) throw countError;
 
-        // Get paginated data
+        // Datos con JOIN
         const { data, error } = await supabase
             .from('el_dep_jugadores')
-            .select('*')
+            .select(`
+        *,
+        el_dep_clubes (
+          nombre
+        )
+      `)
             .eq('club_id', clubId)
+            .eq('activo', true)
             .range(offset, offset + limit - 1)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        const nextToken = offset + limit < count ? encodeNext(offset + limit, limit) : null;
+        // Mapear nombre_club plano
+        const formattedData = data.map(jugador => ({
+            ...jugador,
+            nombre_club: jugador.el_dep_clubes?.nombre || null
+        }));
+
+        const nextToken =
+            offset + limit < count
+                ? encodeNext(offset + limit, limit)
+                : null;
 
         return {
             statusCode: 200,
             body: JSON.stringify({
-                data,
+                data: formattedData,
                 total_jugadores: count,
                 next: nextToken
             }),
         };
+
     } catch (error) {
         return {
-            statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,
+            statusCode:
+                error.message === 'Invalid token' || error.message === 'No token provided'
+                    ? 401
+                    : 500,
             body: JSON.stringify({ message: error.message }),
         };
     }
 };
+
 
 export const buscarJugadores = async (event) => {
     try {
@@ -202,6 +221,79 @@ export const buscarJugadores = async (event) => {
             .eq('club_id', clubId)
             .or(`nombre_completo.ilike.%${query}%,rut.ilike.%${query}%,telefono.ilike.%${query}%`)
             .limit(20);
+
+        if (error) throw error;
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(data),
+        };
+    } catch (error) {
+        return {
+            statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
+
+export const actualizar = async (event) => {
+    try {
+        // Validar API Key
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) {
+            return apiKeyValidation.response;
+        }
+
+        const userId = getUserIdFromToken(event);
+        const { clubId, id } = event.pathParameters;
+        const body = JSON.parse(event.body);
+
+        // Extract allowed fields
+        const {
+            nombre_completo,
+            rut,
+            email,
+            telefono,
+            fecha_nacimiento,
+            es_socio,
+            es_jugador,
+            activo,
+            path_foto,
+            folio,
+            usuario_id
+        } = body;
+
+        const isOwner = await verifyClubOwnership(clubId, userId);
+        if (!isOwner) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ message: 'No tienes permisos para administrar este club' }),
+            };
+        }
+
+        // Build update object dynamically
+        const updateData = {};
+        if (nombre_completo !== undefined) updateData.nombre_completo = nombre_completo;
+        if (rut !== undefined) updateData.rut = rut;
+        if (email !== undefined) updateData.email = email;
+        if (telefono !== undefined) updateData.telefono = telefono;
+        if (fecha_nacimiento !== undefined) updateData.fecha_nacimiento = fecha_nacimiento;
+        if (es_socio !== undefined) updateData.es_socio = es_socio;
+        if (es_jugador !== undefined) updateData.es_jugador = es_jugador;
+        if (activo !== undefined) updateData.activo = activo;
+        if (path_foto !== undefined) updateData.path_foto = path_foto;
+        if (folio !== undefined) updateData.folio = folio;
+        // if (usuario_id !== undefined) updateData.usuario_id = usuario_id; // Usually not updated via this endpoint, but keeping if requested.
+
+        updateData.updated_at = new Date().toISOString();
+
+        const { data, error } = await supabase
+            .from('el_dep_jugadores')
+            .update(updateData)
+            .eq('id', id)
+            .eq('club_id', clubId)
+            .select()
+            .single();
 
         if (error) throw error;
 
