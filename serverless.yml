@@ -28,6 +28,7 @@ functions:
   - ${file(./routes/jugadores/serverlessJugadores.yml)}
   - ${file(./routes/finanzas/serverlessFinanzas.yml)}
   - ${file(./routes/dashboard/serverlessDashboard.yml)}
+  - ${file(./routes/categorias/serverlessCategorias.yml)}
 
 plugins:
   - serverless-offline

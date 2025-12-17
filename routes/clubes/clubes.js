@@ -69,14 +69,29 @@ export const listar = async (event) => {
 
         const { data, error } = await supabase
             .from('el_dep_clubes')
-            .select('*')
-            .eq('admin_id', userId);
+            .select('*, el_dep_jugadores(count), el_dep_categorias(*)')
+            .eq('admin_id', userId)
+            .eq('el_dep_jugadores.activo', true)
+            .order('edad_desde', { foreignTable: 'el_dep_categorias', ascending: true });
 
         if (error) throw error;
 
+        const clubs = data.map(club => {
+            const count = club.el_dep_jugadores && club.el_dep_jugadores.length > 0 
+                ? club.el_dep_jugadores[0].count 
+                : 0;
+            
+            const { el_dep_jugadores, el_dep_categorias, ...clubData } = club;
+            return {
+                ...clubData,
+                cantidad_jugadores: count,
+                categorias: el_dep_categorias || []
+            };
+        });
+
         return {
             statusCode: 200,
-            body: JSON.stringify(data),
+            body: JSON.stringify(clubs),
         };
     } catch (error) {
         return {

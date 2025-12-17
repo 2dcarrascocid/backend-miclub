@@ -1,0 +1,27 @@
+crearCategoria:
+  handler: routes/categorias/categorias.crear
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/categorias
+        method: post
+
+listarCategorias:
+  handler: routes/categorias/categorias.listar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/categorias
+        method: get
+
+actualizarCategoria:
+  handler: routes/categorias/categorias.actualizar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/categorias/{id}
+        method: put
+
+eliminarCategoria:
+  handler: routes/categorias/categorias.eliminar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/categorias/{id}
+        method: delete

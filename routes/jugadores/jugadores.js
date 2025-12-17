@@ -116,7 +116,7 @@ export const listar = async (event) => {
 
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
-        const { next } = event.queryStringParameters || {};
+        const { next, categoria } = event.queryStringParameters || {};
 
         const isOwner = await verifyClubOwnership(clubId, userId);
         if (!isOwner) {
@@ -129,26 +129,80 @@ export const listar = async (event) => {
         const limit = 10;
         const offset = next ? decodeNext(next)?.offset || 0 : 0;
 
-        // Total
-        const { count, error: countError } = await supabase
+        // Construir query base
+        let query = supabase
             .from('el_dep_jugadores')
             .select('*', { count: 'exact', head: true })
-            .eq('club_id', clubId)
-            .eq('activo', true);
+            .eq('club_id', clubId);
+
+        // Aplicar filtros según categoría
+        const today = new Date();
+        const getBirthDateLimit = (years) => {
+            const d = new Date(today);
+            d.setFullYear(d.getFullYear() - years);
+            return d.toISOString().split('T')[0]; // YYYY-MM-DD
+        };
+
+        if (categoria === 'eliminados') {
+            query = query.eq('activo', false);
+        } else {
+            // Por defecto solo activos para el resto de categorías
+            query = query.eq('activo', true);
+
+            if (categoria === 'dorados') {
+                // >= 55 años: Nacieron antes o en la fecha de hace 55 años
+                query = query.lte('fecha_nacimiento', getBirthDateLimit(55));
+            } else if (categoria === 'super') {
+                // 46-54 años
+                // Nacieron después de hace 55 años Y antes o en hace 46 años
+                query = query
+                    .gt('fecha_nacimiento', getBirthDateLimit(55))
+                    .lte('fecha_nacimiento', getBirthDateLimit(46));
+            } else if (categoria === 'senior') {
+                // 35-45 años
+                query = query
+                    .gt('fecha_nacimiento', getBirthDateLimit(46))
+                    .lte('fecha_nacimiento', getBirthDateLimit(35));
+            }
+            // 'todos' o undefined: solo filtro de activo=true (ya aplicado)
+        }
+
+        // Ejecutar query de conteo
+        const { count, error: countError } = await query;
 
         if (countError) throw countError;
 
-        // Datos con JOIN
-        const { data, error } = await supabase
+        // Datos con JOIN (reconstruir query porque .select de count es diferente)
+        let dataQuery = supabase
             .from('el_dep_jugadores')
             .select(`
-        *,
-        el_dep_clubes (
-          nombre
-        )
-      `)
-            .eq('club_id', clubId)
-            .eq('activo', true)
+                *,
+                el_dep_clubes (
+                  nombre
+                )
+            `)
+            .eq('club_id', clubId);
+
+        // Re-aplicar filtros a la query de datos
+        if (categoria === 'eliminados') {
+            dataQuery = dataQuery.eq('activo', false);
+        } else {
+            dataQuery = dataQuery.eq('activo', true);
+
+            if (categoria === 'dorados') {
+                dataQuery = dataQuery.lte('fecha_nacimiento', getBirthDateLimit(55));
+            } else if (categoria === 'super') {
+                dataQuery = dataQuery
+                    .gt('fecha_nacimiento', getBirthDateLimit(55))
+                    .lte('fecha_nacimiento', getBirthDateLimit(46));
+            } else if (categoria === 'senior') {
+                dataQuery = dataQuery
+                    .gt('fecha_nacimiento', getBirthDateLimit(46))
+                    .lte('fecha_nacimiento', getBirthDateLimit(35));
+            }
+        }
+            
+        const { data, error } = await dataQuery
             .range(offset, offset + limit - 1)
             .order('created_at', { ascending: false });
 

@@ -109,7 +109,7 @@ export const listarMovimientos = async (event) => {
 
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
-        const { next } = event.queryStringParameters || {};
+        const { next, tipo } = event.queryStringParameters || {};
 
         if (!await verifyClubAccess(clubId, userId)) {
             return {
@@ -121,18 +121,31 @@ export const listarMovimientos = async (event) => {
         const limit = 10;
         const offset = next ? decodeNext(next)?.offset || 0 : 0;
 
-        // Get total count
-        const { count, error: countError } = await supabase
+        // Build query
+        let query = supabase
             .from('el_dep_movimientos_financieros')
             .select('*', { count: 'exact', head: true })
             .eq('club_id', clubId);
 
+        if (tipo && ['ingreso', 'egreso'].includes(tipo.toLowerCase())) {
+            query = query.eq('tipo', tipo.toLowerCase());
+        }
+
+        // Get total count
+        const { count, error: countError } = await query;
+
         if (countError) throw countError;
 
-        const { data: movimientos, error } = await supabase
+        let dataQuery = supabase
             .from('el_dep_movimientos_financieros')
             .select('*')
-            .eq('club_id', clubId)
+            .eq('club_id', clubId);
+
+        if (tipo && ['ingreso', 'egreso'].includes(tipo.toLowerCase())) {
+            dataQuery = dataQuery.eq('tipo', tipo.toLowerCase());
+        }
+
+        const { data: movimientos, error } = await dataQuery
             .order('fecha_movimiento', { ascending: false })
             .range(offset, offset + limit - 1);
 
