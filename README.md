@@ -19,7 +19,7 @@ Este proyecto es un backend construido con **Node.js 20**, **Serverless Framewor
 ## Estructura del proyecto
 backend-sls/
 │
-├─ routes/                 # Endpoints agrupados por funcionalidad (usuarios, login, partidos)
+├─ routes/                 # Endpoints agrupados por funcionalidad (usuarios, login, partidos, clubes)
 ├─ services/               # Servicios de conexión a DB y utilidades
 ├─ node_modules/
 ├─ .env                    # Variables de entorno
@@ -27,4 +27,24 @@ backend-sls/
 ├─ serverless.yml          # Configuración de Serverless Framework
 ├─ package.json
 └─ README.md
+
+---
+
+## Endpoints Principales
+
+### Clubes
+- **GET /clubes**: Listar clubes (filtro opcional por owner_id).
+- **POST /clubes**: Crear un nuevo club.
+- **PUT /clubes/{id}**: Editar un club existente (nombre, descripción, foto).
+- **DELETE /clubes/{id}**: Eliminar un club.
+
+### Auth
+- **POST /auth/login**: Iniciar sesión.
+- **POST /auth/register**: Registrar usuario.
+- **POST /auth/refresh**: Refrescar token.
+
+### Partidos
+- **GET /matches**: Listar partidos.
+- **POST /matches**: Crear partido.
+
 
