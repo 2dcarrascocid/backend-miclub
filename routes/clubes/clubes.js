@@ -17,6 +17,18 @@ const getUserIdFromToken = (event) => {
     }
 };
 
+const verifyClubOwnership = async (clubId, userId) => {
+    const { data, error } = await supabase
+        .from('el_dep_clubes')
+        .select('id')
+        .eq('id', clubId)
+        .eq('admin_id', userId)
+        .single();
+
+    if (error || !data) return false;
+    return true;
+};
+
 export const crear = async (event) => {
     try {
         // Validar API Key
@@ -49,6 +61,61 @@ export const crear = async (event) => {
             statusCode: 201,
             body: JSON.stringify(data),
         };
+    } catch (error) {
+        return {
+            statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
+
+export const editar = async (event) => {
+    try {
+        // Validar API Key
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) {
+            return apiKeyValidation.response;
+        }
+
+        const userId = getUserIdFromToken(event);
+        const { clubId } = event.pathParameters;
+        const body = JSON.parse(event.body);
+        const { nombre, descripcion, path_foto } = body;
+
+        const isOwner = await verifyClubOwnership(clubId, userId);
+        if (!isOwner) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ message: 'No tienes permisos para editar este club' }),
+            };
+        }
+
+        const updates = {};
+        if (nombre !== undefined) updates.nombre = nombre;
+        if (descripcion !== undefined) updates.descripcion = descripcion;
+        if (path_foto !== undefined) updates.path_foto = path_foto;
+
+        if (Object.keys(updates).length === 0) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: 'No se enviaron datos para actualizar' }),
+            };
+        }
+
+        const { data, error } = await supabase
+            .from('el_dep_clubes')
+            .update(updates)
+            .eq('id', clubId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(data),
+        };
+
     } catch (error) {
         return {
             statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,

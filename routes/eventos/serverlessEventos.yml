@@ -1,0 +1,55 @@
+crearEvento:
+  handler: routes/eventos/eventos.crear
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos
+        method: post
+
+actualizarEvento:
+  handler: routes/eventos/eventos.actualizar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos/{id}
+        method: put
+
+listarEventos:
+  handler: routes/eventos/eventos.listar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos
+        method: get
+
+obtenerEvento:
+  handler: routes/eventos/eventos.obtener
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos/{id}
+        method: get
+
+agregarJugadorEvento:
+  handler: routes/eventos/eventos.agregarJugador
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos/{id}/jugadores
+        method: post
+
+quitarJugadorEvento:
+  handler: routes/eventos/eventos.quitarJugador
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}
+        method: delete
+
+registrarPagoEvento:
+  handler: routes/eventos/eventos.registrarPago
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}/pagar
+        method: post
+
+cerrarEvento:
+  handler: routes/eventos/eventos.cerrar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/eventos/{id}/cerrar
+        method: post

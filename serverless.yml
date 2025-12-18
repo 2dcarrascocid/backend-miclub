@@ -29,6 +29,7 @@ functions:
   - ${file(./routes/finanzas/serverlessFinanzas.yml)}
   - ${file(./routes/dashboard/serverlessDashboard.yml)}
   - ${file(./routes/categorias/serverlessCategorias.yml)}
+  - ${file(./routes/eventos/serverlessEventos.yml)}
 
 plugins:
   - serverless-offline

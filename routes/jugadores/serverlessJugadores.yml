@@ -25,3 +25,18 @@ actualizarJugador:
     - httpApi:
         path: /clubes/{clubId}/jugadores/{id}
         method: put
+
+descargarPlantillaJugadores:
+  handler: routes/jugadores/carga_masiva.descargarPlantilla
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/jugadores/plantilla
+        method: get
+
+cargaMasivaJugadores:
+  handler: routes/jugadores/carga_masiva.procesarCargaMasiva
+  timeout: 29
+  events:
+    - httpApi:
+        path: /clubes/{clubId}/jugadores/carga-masiva
+        method: post

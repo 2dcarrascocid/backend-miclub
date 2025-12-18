@@ -11,3 +11,10 @@ listarClubes:
     - httpApi:
         path: /clubes
         method: get
+
+editarClub:
+  handler: routes/clubes/clubes.editar
+  events:
+    - httpApi:
+        path: /clubes/{clubId}
+        method: put

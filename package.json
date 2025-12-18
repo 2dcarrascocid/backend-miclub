@@ -21,10 +21,12 @@
     "dotenv": "^17.2.3",
     "google-auth-library": "^10.5.0",
     "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "serverless-http": "^4.0.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-dist": "^5.30.2"
+    "swagger-ui-dist": "^5.30.2",
+    "xlsx": "^0.18.5"
   },
   "description": "",
   "devDependencies": {
