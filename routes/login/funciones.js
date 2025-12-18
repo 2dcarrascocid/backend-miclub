@@ -72,6 +72,14 @@ export async function generateAccessToken(userId) {
   return jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXP });
 }
 
+export function verifyAccessToken(token) {
+  try {
+    return jwt.verify(token, ACCESS_TOKEN_SECRET);
+  } catch (error) {
+    throw new Error("Token inválido o expirado");
+  }
+}
+
 export async function verifyGoogleToken(idToken) {
   const expectedAudience = process.env.GOOGLE_CLIENT_ID;
   try {

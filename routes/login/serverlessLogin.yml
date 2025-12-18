@@ -25,3 +25,17 @@ logout:
     - httpApi:
         path: /auth/logout
         method: post
+
+getProfile:
+  handler: routes/login/loginBasic.getProfile
+  events:
+    - httpApi:
+        path: /auth/profile
+        method: get
+
+updateProfile:
+  handler: routes/login/loginBasic.updateProfile
+  events:
+    - httpApi:
+        path: /auth/profile
+        method: put

@@ -1,42 +1,25 @@
-En el proyecto backend-miclub, necesito crear el crud de servicio para la tabla el_dep_categorias
+En el proyecto backend-miclub necesito crear un servicio que cargue un excel con jugadores 
+y los inserte en la tabla el_dep_jugadores
+
 debe tener la funcionalidad de: 
-insertar, actualizar, eliminar, listar las categorias de jugadores que pertenecen a un club
+poder descargar un excel con el formato necesario para la descarga
+subir el archivo y poder insertar los jugadores en la tabla el_dep_jugadores
+crear un informe de los jugadores insertados y los que no se pudieron insertar y el error correspondiente
+todos los jugadors deben pertener a un club especifico
+generar un archivo en pdf con el informe de los jugadores insertados y los que no se pudieron insertar y el error correspondiente
 
-insertar = INSERT INTO el_dep_categorias (
-    id_club,
-    nombre,
-    descripcion,
-    edad_desde,
-    edad_hasta
-) VALUES (
-    :id_club,
-    :nombre,
-    :descripcion,
-    :edad_desde,
-    :edad_hasta
-)
-RETURNING *;
+estos son los datos basico necesarios
 
-obtener las categorias = 
-SELECT *
-FROM el_dep_categorias
-WHERE id_club = :id_club
-ORDER BY edad_desde ASC;
 
-actulizar :
-UPDATE el_dep_categorias
-SET
-    nombre = :nombre,
-    descripcion = :descripcion,
-    edad_desde = :edad_desde,
-    edad_hasta = :edad_hasta,
-    updated_at = NOW()
-WHERE id = :id
-RETURNING *;
-
-eliminar = DELETE FROM  el_dep_categorias
-WHERE id = :id
-RETURNING *;
+            "club_id": "20daf933-d0dd-4f96-a0c8-85cf793141d0",
+            "nombre_completo": "sssss",
+            "rut": "1234567-8",
+            "email": "jugadoer@gmail.com",
+            "telefono": "99999999",
+            "fecha_nacimiento": "1966-01-01",
+            "activo": true,
+            "created_at": "2025-12-17T02:18:23.543837+00:00",
+            "folio": 99
 
 
 Usa el stack: Node.js 20, Serverless Framework v4 y Supabase.
@@ -47,3 +30,5 @@ serverlessCAtegorias.yml
 Implementa la lógica en el handler utilizando la misma logica enterior de los demas endpoints.
 actualiza el archivo  serverless.yml si es necesario
 
+
+ademas crea las funionalidad en frontend-miclub para poder subir el archivo y poder ver el informe de los jugadores insertados y los que no se pudieron insertar y el error correspondiente
