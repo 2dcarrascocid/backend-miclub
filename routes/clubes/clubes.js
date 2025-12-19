@@ -80,7 +80,7 @@ export const editar = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
         const body = JSON.parse(event.body);
-        const { nombre, descripcion, path_foto } = body;
+        const { nombre, descripcion, path_foto, deporte } = body;
 
         const isOwner = await verifyClubOwnership(clubId, userId);
         if (!isOwner) {
@@ -94,7 +94,9 @@ export const editar = async (event) => {
         if (nombre !== undefined) updates.nombre = nombre;
         if (descripcion !== undefined) updates.descripcion = descripcion;
         if (path_foto !== undefined) updates.path_foto = path_foto;
+        if (deporte !== undefined) updates.deporte = deporte;
 
+        console.log("updates", updates)
         if (Object.keys(updates).length === 0) {
             return {
                 statusCode: 400,
