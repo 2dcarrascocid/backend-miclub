@@ -1,6 +1,8 @@
 import * as crud from './crud_login.js';
 import * as funciones from './funciones.js';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
+import { sendEmail } from '../notifications/emailService.js';
+import { getTemplate, NOTIFICATION_TYPES } from '../notifications/templates/index.js';
 
 export const register = async (event) => {
   try {
@@ -20,54 +22,58 @@ export const register = async (event) => {
       };
     }
 
-    // 1. Registrar usuario local
+    // 1. Generar token de verificación
+    const verificationToken = funciones.generateVerificationToken();
+    const verificationExpires = funciones.verificationTokenExpireAt();
+
+    // 2. Registrar usuario local
     // Nota: registerLocalUser ya normaliza el email y hashea el password
     const user = await crud.registerLocalUser({
       email,
       password,
-      metadata: { nombre, ...metadata }
+      metadata: { nombre, ...metadata },
+      verification_token: verificationToken,
+      verification_token_expires_at: verificationExpires
     });
 
-    // 2. Generar tokens y sesión
-    const accessToken = await funciones.generateAccessToken(user.id);
-    const refreshToken = funciones.generateRefreshToken();
-    const refreshTokenHash = funciones.hashRefreshToken(refreshToken);
-    const expireAt = funciones.refreshTokenExpireAt();
-
-    const sessionMeta = funciones.buildSessionMetadata(event);
-
-    const session = await crud.createSession({
-      usuario_id: user.id,
-      refresh_token_hash: refreshTokenHash,
-      user_agent: sessionMeta.userAgent,
-      ip_address: sessionMeta.ip,
-      dispositivo: sessionMeta.device,
-      valido: true,
-      created_at: new Date().toISOString(),
-      expire_at: expireAt
+    // 3. Enviar correo
+    const template = getTemplate(NOTIFICATION_TYPES.AUTH_REGISTER, {
+      nombre,
+      token: verificationToken
     });
 
-    // 3. Obtener roles y permisos (por defecto jugador al registrarse)
-    const roles = await crud.getUserRoles(user.id);
-    const permisos = await crud.getUserPermissions(user.id);
-    const clubes = await crud.getUserClubs(user.id);
-
-    // 4. Construir respuesta
-    const response = funciones.buildAuthResponse({
-      user,
-      roles,
-      permisos,
-      clubes,
-      accessToken,
-      refreshToken,
-      sessionId: session.id
+    // Enviar sin esperar (fire and forget) o esperar si es crítico. 
+    // Para registro suele ser mejor esperar para confirmar que salió el mail, o manejarlo en cola.
+    // Aquí esperamos para reportar error si falla el envío, aunque el usuario ya se creó.
+    const emailResult = await sendEmail({
+      to: email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
 
+    if (!emailResult.success) {
+      console.warn("Error enviando email de verificación:", emailResult.error);
+      // Opcional: Podríamos retornar error o advertencia, pero el usuario ya se creó.
+      // Retornamos éxito pero con mensaje
+    }
+
+    // 4. Respuesta (Sin iniciar sesión automáticamente)
     return {
       statusCode: 201,
-      body: JSON.stringify(response),
+      body: JSON.stringify({
+        message: 'Usuario registrado exitosamente. Por favor revisa tu correo para activar tu cuenta.',
+        usuario: funciones.sanitizeUserData(user),
+        emailSent: emailResult.success
+      }),
     };
 
+    /* FLUJO ANTERIOR (Auto-login) - Comentado para flujo de verificación
+    // 2. Generar tokens y sesión
+    const accessToken = await funciones.generateAccessToken(user.id);
+    // ...
+    */
+    
   } catch (error) {
     console.error("Register Error:", error);
     return {
@@ -105,7 +111,15 @@ export const login = async (event) => {
       };
     }
 
-    // 2. Generar tokens y sesión
+    // 2. Validar Email Verificado
+    if (!user.email_verified) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: 'Tu cuenta no ha sido verificada. Por favor revisa tu correo.' }),
+      };
+    }
+
+    // 3. Generar tokens y sesión
     const accessToken = await funciones.generateAccessToken(user.id);
     const refreshToken = funciones.generateRefreshToken();
     const refreshTokenHash = funciones.hashRefreshToken(refreshToken);
@@ -149,6 +163,33 @@ export const login = async (event) => {
     console.error("Login Error:", error);
     return {
       statusCode: 500,
+      body: JSON.stringify({ message: error.message }),
+    };
+  }
+};
+
+export const verifyAccount = async (event) => {
+  try {
+    const { token } = event.queryStringParameters || {};
+
+    if (!token) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Token de verificación requerido' }),
+      };
+    }
+
+    await crud.verifyUserEmail(token);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Cuenta verificada exitosamente. Ahora puedes iniciar sesión.' }),
+    };
+
+  } catch (error) {
+    console.error("Verification Error:", error);
+    return {
+      statusCode: 400, // Bad Request para tokens inválidos/expirados
       body: JSON.stringify({ message: error.message }),
     };
   }

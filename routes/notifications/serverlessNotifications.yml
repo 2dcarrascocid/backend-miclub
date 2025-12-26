@@ -1,0 +1,6 @@
+sendNotification:
+  handler: routes/notifications/notificationHandler.sendNotification
+  events:
+    - httpApi:
+        path: /notifications/send
+        method: post

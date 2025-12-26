@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS el_dep_jugadores (
     telefono TEXT,
     fecha_nacimiento DATE,
     es_socio BOOLEAN DEFAULT FALSE,
+    es_jugador BOOLEAN DEFAULT FALSE,
+    folio INTEGER,
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -114,6 +116,8 @@ CREATE TABLE IF NOT EXISTS el_dep_movimientos_financieros (
     descripcion TEXT,
     fecha_movimiento TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     registrado_por UUID REFERENCES el_dep_identidades(id) ON DELETE SET NULL,
+    origen_id UUID,
+    origen_tipo TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -133,11 +137,43 @@ CREATE TABLE IF NOT EXISTS el_dep_cierres_mensuales (
     UNIQUE(club_id, mes, anio)
 );
 
+-- 2.5 Tabla de Eventos
+CREATE TABLE IF NOT EXISTS el_dep_club_eventos (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    club_id UUID NOT NULL REFERENCES el_dep_clubes(id) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    descripcion TEXT,
+    tipo_evento TEXT,
+    fecha_evento TIMESTAMP WITH TIME ZONE,
+    fecha_limite_pago TIMESTAMP WITH TIME ZONE,
+    costo_unitario NUMERIC(12, 2) DEFAULT 0,
+    estado TEXT DEFAULT 'borrador', -- 'borrador', 'publicado', 'cerrado'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2.6 Tabla de Jugadores en Eventos (Inscripciones)
+CREATE TABLE IF NOT EXISTS el_dep_club_evento_jugadores (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    evento_id UUID NOT NULL REFERENCES el_dep_club_eventos(id) ON DELETE CASCADE,
+    jugador_id UUID NOT NULL REFERENCES el_dep_jugadores(id) ON DELETE CASCADE,
+    numero_jugador TEXT,
+    estado_pago TEXT DEFAULT 'pendiente', -- 'pendiente', 'pagado'
+    monto NUMERIC(12, 2) DEFAULT 0,
+    fecha_limite_pago TIMESTAMP WITH TIME ZONE,
+    fecha_pago TIMESTAMP WITH TIME ZONE,
+    estado_cumplimiento TEXT, -- 'a_tiempo', 'atrasado'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(evento_id, jugador_id)
+);
+
 -- Índices para optimización
 CREATE INDEX IF NOT EXISTS idx_clubes_admin ON el_dep_clubes(admin_id);
 CREATE INDEX IF NOT EXISTS idx_jugadores_club ON el_dep_jugadores(club_id);
 CREATE INDEX IF NOT EXISTS idx_movimientos_club_fecha ON el_dep_movimientos_financieros(club_id, fecha_movimiento);
 CREATE INDEX IF NOT EXISTS idx_cierres_club_periodo ON el_dep_cierres_mensuales(club_id, anio, mes);
+CREATE INDEX IF NOT EXISTS idx_eventos_club ON el_dep_club_eventos(club_id);
+CREATE INDEX IF NOT EXISTS idx_evento_jugadores_evento ON el_dep_club_evento_jugadores(evento_id);
 
 -- Insertar Roles Básicos si no existen
 INSERT INTO el_dep_roles (nombre, descripcion) VALUES 

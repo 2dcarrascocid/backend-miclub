@@ -193,3 +193,17 @@ export function refreshTokenExpireAt(days = 30) {
   date.setDate(date.getDate() + days);
   return date.toISOString();
 }
+
+/* ---------------------------------------------------------
+   📧 VERIFICACIÓN DE EMAIL
+--------------------------------------------------------- */
+
+export function generateVerificationToken() {
+  return randomBytes(32).toString("hex");
+}
+
+export function verificationTokenExpireAt(hours = 24) {
+  const date = new Date();
+  date.setHours(date.getHours() + hours);
+  return date.toISOString();
+}

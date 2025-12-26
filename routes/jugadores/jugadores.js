@@ -41,7 +41,7 @@ export const crear = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
         const body = JSON.parse(event.body);
-        const { nombre_completo, rut, email, telefono, fecha_nacimiento, es_socio, es_jugador, usuario_id, path_foto } = body;
+        const { nombre_completo, rut, email, telefono, fecha_nacimiento, es_socio, es_jugador, usuario_id, path_foto, folio: folioInput } = body;
 
         if (!nombre_completo) {
             return {
@@ -58,8 +58,8 @@ export const crear = async (event) => {
             };
         }
 
-        let folio = null;
-        if (es_jugador) {
+        let folio = folioInput;
+        if (!folio && es_jugador) {
             const { data: maxFolioData, error: maxFolioError } = await supabase
                 .from('el_dep_jugadores')
                 .select('folio')

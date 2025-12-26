@@ -28,15 +28,54 @@ export async function findUserById(id) {
   return data;
 }
 
-export async function createUserIdentity({ email, provider, metadata }) {
+export async function createUserIdentity({ email, provider, metadata, email_verified, verification_token, verification_token_expires_at }) {
   const { data, error } = await supabase
     .from("el_dep_identidades")
-    .insert([{ email, provider, metadata }])
+    .insert([{ 
+      email, 
+      provider, 
+      metadata,
+      email_verified: email_verified || false,
+      verification_token,
+      verification_token_expires_at
+    }])
     .select()
     .single();
 
   if (error) throw new Error("Error creando identidad: " + error.message);
   return data;
+}
+
+export async function verifyUserEmail(token) {
+  // 1. Buscar usuario por token
+  const { data: user, error } = await supabase
+    .from("el_dep_identidades")
+    .select("*")
+    .eq("verification_token", token)
+    .single();
+
+  if (error || !user) throw new Error("Token inválido o usuario no encontrado");
+
+  // 2. Verificar expiración
+  if (new Date(user.verification_token_expires_at) < new Date()) {
+    throw new Error("El token ha expirado");
+  }
+
+  // 3. Actualizar usuario (activar)
+  const { data: updated, error: updateError } = await supabase
+    .from("el_dep_identidades")
+    .update({ 
+      email_verified: true, 
+      verification_token: null, 
+      verification_token_expires_at: null 
+    })
+    .eq("id", user.id)
+    .select()
+    .single();
+
+  if (updateError) throw new Error("Error activando usuario");
+
+  return updated;
 }
 
 export async function updateUserIdentity(id, dataToUpdate) {
@@ -213,7 +252,7 @@ export async function loginLocal({ email, password }) {
   return user;
 }
 
-export async function registerLocalUser({ email, password, metadata }) {
+export async function registerLocalUser({ email, password, metadata, verification_token, verification_token_expires_at }) {
   const normalizedEmail = funciones.normalizeEmail(email);
 
   const existing = await findUserByEmail(normalizedEmail);
@@ -223,6 +262,9 @@ export async function registerLocalUser({ email, password, metadata }) {
     email: normalizedEmail,
     provider: "local",
     metadata,
+    email_verified: false,
+    verification_token,
+    verification_token_expires_at
   });
 
   const { hash, salt } = await funciones.hashPassword(password);

@@ -39,3 +39,10 @@ updateProfile:
     - httpApi:
         path: /auth/profile
         method: put
+
+verifyAccount:
+  handler: routes/login/loginBasic.verifyAccount
+  events:
+    - httpApi:
+        path: /auth/verify
+        method: get

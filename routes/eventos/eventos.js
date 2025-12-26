@@ -95,10 +95,11 @@ export const actualizar = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ message: 'No se puede editar un evento cerrado' }) };
         }
 
+        const { jugadores, ...bodySinJugadores } = body;
         // Permitir actualizar campos
         const { data, error } = await supabase
             .from('el_dep_club_eventos')
-            .update(body)
+            .update(bodySinJugadores)
             .eq('id', id)
             .select()
             .single();
@@ -107,6 +108,7 @@ export const actualizar = async (event) => {
 
         return { statusCode: 200, body: JSON.stringify(data) };
     } catch (error) {
+        console.error("ERRRORO",error);
         return { statusCode: 500, body: JSON.stringify({ message: error.message }) };
     }
 };
