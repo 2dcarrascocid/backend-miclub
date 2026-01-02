@@ -1,6 +1,7 @@
 import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
+import { path } from 'pdfkit';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
 
@@ -31,6 +32,7 @@ const verifyClubOwnership = async (clubId, userId) => {
 
 export const crear = async (event) => {
     try {
+
         // Validar API Key
         const apiKeyValidation = validateApiKey(event);
         if (!apiKeyValidation.valid) {
@@ -40,21 +42,23 @@ export const crear = async (event) => {
         const userId = getUserIdFromToken(event);
         console.log("userId", userId)
         const body = JSON.parse(event.body);
-        const { nombre, descripcion } = body;
+        const { nombre, descripcion, deporte, path_foto } = body;
 
-        if (!nombre) {
+        if (!nombre || !deporte) {
             return {
                 statusCode: 400,
-                body: JSON.stringify({ message: 'El nombre del club es obligatorio' }),
+                body: JSON.stringify({ message: 'El nombre y/o deporte del club es obligatorio' }),
             };
         }
 
         const { data, error } = await supabase
             .from('el_dep_clubes')
-            .insert([{ nombre, descripcion, admin_id: userId }])
+            .insert([{ nombre, descripcion, path_foto, deporte, admin_id: userId }])
             .select()
             .single();
 
+            console.log("data", data);
+            console.log("error", error);
         if (error) throw error;
 
         return {

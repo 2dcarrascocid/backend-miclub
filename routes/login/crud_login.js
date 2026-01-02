@@ -168,7 +168,6 @@ export async function getUserRoles(userId) {
 }
 
 export async function getUserPermissions(userId) {
-  console.log("userId", userId);
   // 1. Obtener roles del usuario
   const { data: userRoles, error: userRolesError } = await supabase
     .from("el_dep_usuario_roles")
@@ -225,6 +224,45 @@ console.log(`menuItems->`,menuItems)
     icono: item.menu?.icono,
     puede_editar: item.puede_editar,
   }));
+}
+
+//actulizar esta cuncion getUserPlan
+export async function getUserPlan(userId) {
+  // 1. Obtener roles del usuario
+  const { data: userRoles, error: userRolesError } = await supabase
+    .from("el_dep_usuario_roles")
+    .select("*")
+    .eq("usuario_id", userId);
+
+  if (userRolesError) throw new Error("Error obteniendo roles: " + userRolesError.message);
+  if (!userRoles || userRoles.length === 0) return [];
+
+  const roleIds = userRoles.map((r) => r.rol_id);
+
+  // 2. Obtener detalles de roles
+  const { data: roles, error: rolesError } = await supabase
+    .from("el_dep_roles")
+    .select("*")
+    .in("id", roleIds);
+
+  if (rolesError) throw new Error("Error obteniendo detalles de roles: " + rolesError.message);
+
+  // 3. Obtener planes asociados (asumiendo que el rol tiene plan_id)
+  const planIds = roles
+    .map((r) => r.id_plan)
+    .filter((id) => id); // Filtrar nulos
+
+  if (planIds.length === 0) return [];
+
+  // 4. Obtener detalles de planes
+  const { data: planes, error: planesError } = await supabase
+    .from("el_dep_planes")
+    .select("*")
+    .in("id", planIds);
+
+  if (planesError) throw new Error("Error obteniendo planes: " + planesError.message);
+
+  return planes;
 }
 
 

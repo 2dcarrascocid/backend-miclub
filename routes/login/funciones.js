@@ -153,6 +153,7 @@ export function hasPermission(userPermissions, requiredPermission) {
 export function buildAuthResponse({
   user,
   roles,
+  plan,
   permisos,
   clubes,
   accessToken,
@@ -162,6 +163,7 @@ export function buildAuthResponse({
   return {
     usuario: sanitizeUserData(user),
     roles,
+    plan,
     permisos,
     clubes,
     tokens: {
