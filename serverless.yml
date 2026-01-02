@@ -39,6 +39,7 @@ functions:
   - ${file(./routes/categorias/serverlessCategorias.yml)}
   - ${file(./routes/eventos/serverlessEventos.yml)}
   - ${file(./routes/notifications/serverlessNotifications.yml)}
+  - ${file(./routes/membresia/serverlessMembresia.yml)}
 
 plugins:
   - serverless-offline
@@ -65,7 +66,7 @@ build:
   esbuild:
     bundle: true
     minify: true
-    target: node20
+    target: node22
     platform: node
     external:
       - aws-sdk

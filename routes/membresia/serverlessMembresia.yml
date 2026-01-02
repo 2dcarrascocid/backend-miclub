@@ -1,0 +1,87 @@
+membresiaListarPlanes:
+  handler: routes/membresia/membresiaHandler.listarPlanes
+  events:
+    - httpApi:
+        path: /planes
+        method: get
+
+membresiaObtenerPlan:
+  handler: routes/membresia/membresiaHandler.obtenerPlan
+  events:
+    - httpApi:
+        path: /planes/{codigo}
+        method: get
+
+membresiaObtenerSuscripcion:
+  handler: routes/membresia/membresiaHandler.obtenerSuscripcionClub
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/suscripcion
+        method: get
+
+membresiaHistorial:
+  handler: routes/membresia/membresiaHandler.historialSuscripcion
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/suscripcion/historial
+        method: get
+
+membresiaSolicitarCambio:
+  handler: routes/membresia/membresiaHandler.solicitarCambioPlan
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/suscripcion/solicitar-cambio
+        method: post
+
+membresiaActivarManual:
+  handler: routes/membresia/membresiaHandler.activarSuscripcion
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/suscripcion/activar
+        method: post
+
+membresiaCancelar:
+  handler: routes/membresia/membresiaHandler.cancelarSuscripcion
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/suscripcion/cancelar
+        method: post
+
+membresiaFeatures:
+  handler: routes/membresia/membresiaHandler.obtenerFeatures
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/features
+        method: get
+
+# Cron Jobs / Admin
+membresiaJobVencidas:
+  handler: routes/membresia/membresiaHandler.jobMarcarVencidas
+  events:
+    - httpApi:
+        path: /suscripciones/marcar-vencidas
+        method: post
+    # - schedule: rate(24 hours) # Uncomment for real cron
+
+membresiaJobNotificar:
+  handler: routes/membresia/membresiaHandler.jobNotificarVencimiento
+  events:
+    - httpApi:
+        path: /suscripciones/por-vencer
+        method: get
+    # - schedule: rate(24 hours)
+
+# Pagos (Skeleton)
+membresiaCheckout:
+  handler: routes/membresia/membresiaHandler.checkout
+  events:
+    - httpApi:
+        path: /clubes/{club_id}/pagos/checkout
+        method: post
+
+membresiaWebhook:
+  handler: routes/membresia/membresiaHandler.webhookPagos
+  events:
+    - httpApi:
+        path: /pagos/webhook/{proveedor}
+        method: post

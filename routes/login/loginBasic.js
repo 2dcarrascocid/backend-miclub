@@ -138,15 +138,17 @@ export const login = async (event) => {
       expire_at: expireAt
     });
 
-    // 3. Obtener roles y permisos
+// 3. Obtener roles y permisos
     const roles = await crud.getUserRoles(user.id);
-    const permisos = await crud.getUserPermissions(user.id);
+    console.log("Roles:", roles);
+    const permisos = await crud.getUserPermissions(user.id);  
+    console.log("Permisos:", permisos);
     const clubes = await crud.getUserClubs(user.id);
 
     // 4. Construir respuesta
     const response = funciones.buildAuthResponse({
       user,
-      roles,
+      roles ,
       permisos,
       clubes,
       accessToken,

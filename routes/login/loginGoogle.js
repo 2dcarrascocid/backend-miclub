@@ -54,7 +54,7 @@ export const login = async (event) => {
         });
 
         // Asignar rol por defecto
-        await crud.assignRoleToUser(user.id, 'jugador');
+        await crud.assignRoleToUser(user.id, 'administrador_basic');
       }
 
       userId = user.id;
