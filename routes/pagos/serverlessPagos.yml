@@ -1,0 +1,30 @@
+pagosCreate:
+  handler: routes/pagos/pagos.create
+  events:
+    - httpApi:
+        path: /pagos/webpay-plus/create
+        method: post
+
+pagosReturn:
+  handler: routes/pagos/pagos.commit
+  events:
+    - httpApi:
+        path: /pagos/webpay-plus/return
+        method: post
+    - httpApi:
+        path: /pagos/webpay-plus/return
+        method: get
+
+pagosStatus:
+  handler: routes/pagos/pagos.status
+  events:
+    - httpApi:
+        path: /pagos/webpay-plus/status/{token}
+        method: get
+
+pagosRefund:
+  handler: routes/pagos/pagos.refund
+  events:
+    - httpApi:
+        path: /pagos/webpay-plus/refund
+        method: post

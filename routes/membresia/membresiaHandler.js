@@ -1,10 +1,16 @@
 import * as crud from './crud_membresia.js';
+import { WebpayService } from '../../services/transbankService.js';
+import * as crudPagos from '../pagos/crud_pagos.js';
 import { sendNotification } from '../notifications/notificationHandler.js';
 import { NOTIFICATION_TYPES } from '../notifications/templates/index.js';
 
 // Helper response
 const response = (statusCode, body) => ({
   statusCode,
+  headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true,
+  },
   body: JSON.stringify(body),
 });
 
@@ -197,12 +203,83 @@ export const jobNotificarVencimiento = async (event) => {
     }
 };
 
-// ==================== PAGOS SKELETON ====================
+// ==================== PAGOS (Webpay Plus) ====================
 
 export const checkout = async (event) => {
-    return response(200, { message: 'Checkout iniciado (Skeleton)', url_pago: 'https://webpay.cl/...' });
+    try {
+        const { club_id } = event.pathParameters;
+        const body = JSON.parse(event.body);
+        const { plan_codigo, user_id, billing_period } = body;
+
+        if (!plan_codigo || !user_id) {
+            return response(400, { message: 'Faltan datos requeridos: plan_codigo, user_id' });
+        }
+
+        // 1. Obtener Plan y Precio
+        const plan = await crud.getPlanByCodigo(plan_codigo);
+        if (!plan) return response(404, { message: 'Plan no encontrado' });
+
+        let amount = plan.precio_mensual; 
+        // Lógica simple para periodo anual (si aplicara)
+        if (billing_period === 'anual') {
+            amount = amount * 12; 
+        }
+
+        if (amount <= 0) {
+            return response(400, { message: 'Monto a pagar inválido (debe ser mayor a 0)' });
+        }
+
+        // 2. Generar IDs únicos para la transacción
+        // Prefijo SUB ayuda a identificar que es pago de suscripción
+        const buyOrder = `SUB-${club_id.substring(0,5)}-${Date.now().toString().slice(-6)}`; 
+        const sessionId = `SES-${user_id.substring(0,5)}-${Date.now().toString().slice(-6)}`;
+        
+        // 3. Determinar Return URL
+        // En producción (AWS), headers.Host es el dominio de API Gateway.
+        // En local, es localhost:3000.
+        const host = event.headers.Host || event.headers.host;
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const returnUrl = body.return_url || `${protocol}://${host}/dev/pagos/webpay-plus/return`;
+
+        console.log(`[Checkout] Iniciando pago: ${buyOrder} para Plan ${plan_codigo} ($${amount})`);
+
+        // 4. Crear Registro en DB (Estado PENDING)
+        await crudPagos.createPaymentRecord({
+            buyOrder,
+            sessionId,
+            amount,
+            clubId: club_id,
+            userId: user_id,
+            metadata: {
+                type: 'SUBSCRIPTION',
+                plan_codigo,
+                billing_period,
+                plan_name: plan.nombre
+            }
+        });
+
+        // 5. Llamar a Webpay (Transbank SDK)
+        const txResponse = await WebpayService.create(buyOrder, sessionId, amount, returnUrl);
+
+        // 6. Actualizar Token en DB (Vinculamos la orden con el token de TBK)
+        await crudPagos.updatePaymentToken(buyOrder, txResponse.token);
+
+        // 7. Responder al Frontend con datos para redirección
+        return response(200, {
+            message: 'Transacción creada exitosamente',
+            token: txResponse.token,
+            url: txResponse.url,
+            buy_order: buyOrder,
+            amount: amount
+        });
+
+    } catch (error) {
+        return errorResponse(error);
+    }
 };
 
 export const webhookPagos = async (event) => {
-    return response(200, { message: 'Webhook recibido' });
+    // Este endpoint puede ser usado para notificaciones asíncronas si se implementan en el futuro.
+    // Por ahora, el flujo principal es sincrónico vía browser redirect (return_url).
+    return response(200, { message: 'Webhook endpoint disponible (sin lógica implementada)' });
 };

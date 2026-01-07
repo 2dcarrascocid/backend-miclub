@@ -19,6 +19,10 @@ provider:
     SMTP_FROM: ${env:SMTP_FROM}
     FRONTEND_URL: ${env:FRONTEND_URL}
     MOCK_EMAIL: ${env:MOCK_EMAIL}
+    # Variables Webpay (Mapeadas desde .env)
+    WEBPAY_HOST: ${env:WEBPAY_HOST}
+    WEBPAY_API_KEY: ${env:WEBPAY_API_KEY}
+    WEBPAY_COMMERCE_CODE: ${env:WEBPAY_COMMERCE_CODE}
 
   httpApi:
     cors:
@@ -40,6 +44,7 @@ functions:
   - ${file(./routes/eventos/serverlessEventos.yml)}
   - ${file(./routes/notifications/serverlessNotifications.yml)}
   - ${file(./routes/membresia/serverlessMembresia.yml)}
+  - ${file(./routes/pagos/serverlessPagos.yml)}
 
 plugins:
   - serverless-offline
@@ -76,4 +81,5 @@ build:
 custom:
   serverless-offline:
     disableCookieValidation: true
+    noPrependStage: true
       
