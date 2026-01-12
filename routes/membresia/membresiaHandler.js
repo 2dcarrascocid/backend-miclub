@@ -68,6 +68,7 @@ export const historialSuscripcion = async (event) => {
 };
 
 export const solicitarCambioPlan = async (event) => {
+
   try {
     const { club_id } = event.pathParameters;
     const body = JSON.parse(event.body);
@@ -103,6 +104,7 @@ export const solicitarCambioPlan = async (event) => {
 };
 
 export const activarSuscripcion = async (event) => {
+
   try {
     const { club_id } = event.pathParameters;
     const body = JSON.parse(event.body);
@@ -220,10 +222,21 @@ export const checkout = async (event) => {
         if (!plan) return response(404, { message: 'Plan no encontrado' });
 
         let amount = plan.precio_mensual; 
-        // Lógica simple para periodo anual (si aplicara)
+        
+        // Calcular monto según periodo con descuentos
         if (billing_period === 'anual') {
-            amount = amount * 12; 
+            // Si el pago es anual se cobra el 80% del valor plan (12 meses)
+            amount = (amount * 12) * 0.80; 
+        } else if (billing_period === 'semestral') {
+            // Si el pago es semestral se cobra el 95% del valor plan (6 meses)
+            amount = (amount * 6) * 0.95;
+        } else {
+            // Si el pago es mensual se cobra el 100% del valor plan
+            // (Mantenemos amount igual)
         }
+
+        // Asegurar que sea entero para Transbank
+        amount = Math.round(amount);
 
         if (amount <= 0) {
             return response(400, { message: 'Monto a pagar inválido (debe ser mayor a 0)' });
@@ -241,7 +254,7 @@ export const checkout = async (event) => {
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const returnUrl = body.return_url || `${protocol}://${host}/dev/pagos/webpay-plus/return`;
 
-        console.log(`[Checkout] Iniciando pago: ${buyOrder} para Plan ${plan_codigo} ($${amount})`);
+        // console.log(`[Checkout] Iniciando pago: ${buyOrder} para Plan ${plan_codigo} ($${amount})`);
 
         // 4. Crear Registro en DB (Estado PENDING)
         await crudPagos.createPaymentRecord({
@@ -256,6 +269,13 @@ export const checkout = async (event) => {
                 billing_period,
                 plan_name: plan.nombre
             }
+        });
+
+        // Registrar también en tabla genérica payments
+        await crudPagos.registerPayment({
+            order_id: buyOrder,
+            amount: amount,
+            status: 'PENDING'
         });
 
         // 5. Llamar a Webpay (Transbank SDK)

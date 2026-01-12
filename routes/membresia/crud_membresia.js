@@ -86,6 +86,16 @@ export async function createOrUpdateSuscripcion(clubId, planCodigo, billingPerio
     let oldStatus = null;
 
     if (currentSub) {
+        // Validación: Evitar duplicar solicitud si ya está pendiente con los mismos datos
+        if (currentSub.estado === 'pendiente_pago' && 
+            currentSub.plan_id === plan.id && 
+            currentSub.billing_period === billingPeriod) {
+            
+            // Ya existe una solicitud pendiente idéntica, retornamos esa sin tocar DB
+            currentSub.plan_nombre = plan.nombre;
+            return currentSub;
+        }
+
         // Actualizar existente
         oldPlanId = currentSub.plan_id;
         oldStatus = currentSub.estado;

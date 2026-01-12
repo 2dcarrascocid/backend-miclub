@@ -99,3 +99,49 @@ export async function failPayment(token, status = 'REJECTED', rawResponse = {}) 
     
     return data;
 }
+
+/**
+ * Registra un pago en la tabla generica el_dep_payments
+ */
+export async function registerPayment({
+    order_id,
+    amount,
+    status,
+    document_type = null,
+    document_folio = null,
+    document_pdf = null
+}) {
+    const { data, error } = await supabase
+        .from('el_dep_payments')
+        .insert([{
+            order_id,
+            amount,
+            status,
+            document_type,
+            document_folio,
+            document_pdf
+        }])
+        .select()
+        .single();
+
+    if (error) throw new Error("Error registrando pago en el_dep_payments: " + error.message);
+    return data;
+}
+
+/**
+ * Actualiza el estado en la tabla generica el_dep_payments
+ */
+export async function updateGenericPaymentStatus(orderId, status) {
+    const { data, error } = await supabase
+        .from('el_dep_payments')
+        .update({
+            status: status,
+            // Aquí se podrían mapear más campos si vinieran en el response de TBK y la tabla los soportara
+        })
+        .eq('order_id', orderId)
+        .select()
+        .single();
+    
+    if (error) throw new Error("Error actualizando el_dep_payments: " + error.message);
+    return data;
+}

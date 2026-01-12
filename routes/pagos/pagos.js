@@ -72,6 +72,7 @@ export const create = async (event) => {
  * Aquí confirmamos la transacción.
  */
 export const commit = async (event) => {
+    console.log(`COmmit::::::::::::::::::`, event.body);
     try {
         let token;
         
@@ -110,14 +111,20 @@ export const commit = async (event) => {
         console.log(`[Webpay Commit] Procesando token: ${token}`);
 
         // 1. Confirmar con Transbank (Commit)
+        console.log(`[Webpay Commit] Iniciando commit para token: ${token}`);
         const commitResponse = await WebpayService.commit(token);
-        console.log("[Webpay Commit] Respuesta:", commitResponse);
+        console.log("[Webpay Commit] Respuesta RAW Transbank:", JSON.stringify(commitResponse, null, 2));
 
         // 2. Verificar respuesta
         // response_code === 0 significa Aprobado
         if (commitResponse.response_code === 0) {
             // APROBADO
             await crud.updatePaymentStatus(token, 'AUTHORIZED', commitResponse);
+            
+            console.log("PAYMENT SUCCESS TBK DATA:", JSON.stringify(commitResponse, null, 2));
+
+            // Actualizar tabla genérica
+            await crud.updateGenericPaymentStatus(commitResponse.buy_order, 'PAID');
             
             // TODO: Activar suscripción si es necesario
             // await activateSubscription(token, commitResponse);

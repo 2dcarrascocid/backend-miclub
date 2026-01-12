@@ -11,8 +11,8 @@ const transporter = nodemailer.createTransport({
 });
 
 export const sendEmail = async ({ to, subject, html, text }) => {
-  console.log(`[EmailService] Attempting to send email to ${to}`);
-  console.log(`[EmailService] Config: Host=${process.env.SMTP_HOST}, Port=${process.env.SMTP_PORT}, User=${process.env.SMTP_USER}`);
+  // console.log(`[EmailService] Attempting to send email to ${to}`);
+  // console.log(`[EmailService] Config: Host=${process.env.SMTP_HOST}, Port=${process.env.SMTP_PORT}, User=${process.env.SMTP_USER}`);
   
   try {
     // If mocking is enabled or credentials are missing, just log
@@ -32,7 +32,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
       text,
       html,
     });
-    console.log("Message sent: %s", info.messageId);
+    // console.log("Message sent: %s", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending email: ", error);

@@ -14,7 +14,7 @@ export const sendNotification = async (event) => {
       };
     }
 
-    console.log(`[NotificationHandler] Processing ${type} for ${recipient}`);
+    // console.log(`[NotificationHandler] Processing ${type} for ${recipient}`);
 
     const template = getTemplate(type, data || {});
     const result = await sendEmail({

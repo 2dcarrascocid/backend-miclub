@@ -216,7 +216,7 @@ export async function getUserPermissions(userId) {
     .in("plan_id", planIds);
 
   if (menuError) throw new Error("Error obteniendo permisos de menú: " + menuError.message);
-console.log(`menuItems->`,menuItems)
+
   // Mapear respuesta
   return menuItems.map((item) => ({
     nombre: item.menu?.nombre,

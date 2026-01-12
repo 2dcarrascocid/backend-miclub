@@ -40,7 +40,7 @@ export const crear = async (event) => {
         }
 
         const userId = getUserIdFromToken(event);
-        console.log("userId", userId)
+        // console.log("userId", userId)
         const body = JSON.parse(event.body);
         const { nombre, descripcion, deporte, path_foto } = body;
 
@@ -57,8 +57,8 @@ export const crear = async (event) => {
             .select()
             .single();
 
-            console.log("data", data);
-            console.log("error", error);
+            // console.log("data", data);
+            // console.log("error", error);
         if (error) throw error;
 
         return {
@@ -100,7 +100,7 @@ export const editar = async (event) => {
         if (path_foto !== undefined) updates.path_foto = path_foto;
         if (deporte !== undefined) updates.deporte = deporte;
 
-        console.log("updates", updates)
+        // console.log("updates", updates)
         if (Object.keys(updates).length === 0) {
             return {
                 statusCode: 400,

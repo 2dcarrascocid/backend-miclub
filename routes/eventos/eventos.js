@@ -460,7 +460,7 @@ export const cerrar = async (event) => {
                 origen_tipo: 'evento_cierre_atrasado'
             });
         }
-        console.log(movimientos);
+        // console.log(movimientos);
         if (movimientos.length > 0) {
             const { error: movError } = await supabase
                 .from('el_dep_movimientos_financieros')

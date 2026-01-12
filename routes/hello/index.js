@@ -1,7 +1,7 @@
 'use strict';
 
 export const main = async (event) => {
-  console.log("Variable desde ENV:", process.env.DB_USER);
+  // console.log("Variable desde ENV:", process.env.DB_USER);
 
   return {
     statusCode: 200,

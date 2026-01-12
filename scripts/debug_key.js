@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 const url = process.env.SUPABASE_URL_LIGA;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY_LIGA;
 
-console.log('--- Debugging Supabase Configuration ---');
+// console.log('--- Debugging Supabase Configuration ---');
 
 if (!key) {
     console.error('❌ SUPABASE_SERVICE_ROLE_KEY_LIGA is missing in .env');
@@ -16,7 +16,7 @@ if (!key) {
 // 1. Decode JWT to check role
 try {
     const decoded = jwt.decode(key);
-    console.log('Key Role:', decoded.role);
+    // console.log('Key Role:', decoded.role);
     if (decoded.role !== 'service_role') {
         console.error('⚠️ WARNING: The provided key is NOT a service_role key. It is:', decoded.role);
         console.error('   RLS policies will apply. This is likely the cause of the 42501 error.');

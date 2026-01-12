@@ -6,7 +6,7 @@ export const handler = async () => {
     // 🟩 Ruta ABSOLUTA siempre correcta, offline y deploy
     const swaggerPath = path.join(process.cwd(), "swagger.json");
 
-    console.log("Swagger path:", swaggerPath);
+    // console.log("Swagger path:", swaggerPath);
 
     if (!fs.existsSync(swaggerPath)) {
       throw new Error(`No se encontró swagger.json en: ${swaggerPath}`);
