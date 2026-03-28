@@ -3,9 +3,11 @@ frameworkVersion: '>=4.0.0'
 
 provider:
   name: aws
-  runtime: nodejs20.x
+  runtime: nodejs22.x          # alineado con engines.node >=22 en package.json
   region: us-east-1
   stage: dev
+  memorySize: 512              # reducido de default 1024 MB
+  timeout: 29                  # máximo para HTTP API Gateway
   environment:
     USE_DB_MOCK: ${env:USE_DB_MOCK}
     API_KEY: ${env:API_KEY}
@@ -19,7 +21,6 @@ provider:
     SMTP_FROM: ${env:SMTP_FROM}
     FRONTEND_URL: ${env:FRONTEND_URL}
     MOCK_EMAIL: ${env:MOCK_EMAIL}
-    # Variables Webpay (Mapeadas desde .env)
     WEBPAY_HOST: ${env:WEBPAY_HOST}
     WEBPAY_API_KEY: ${env:WEBPAY_API_KEY}
     WEBPAY_COMMERCE_CODE: ${env:WEBPAY_COMMERCE_CODE}
@@ -27,54 +28,50 @@ provider:
   httpApi:
     cors:
       allowedOrigins:
-        - '*'                # todos los orígenes
+        - '*'
       allowedHeaders:
-        - '*' 
+        - '*'
       allowedMethods:
-        - '*'  
+        - '*'
       allowCredentials: false
-      
+
+# ─── Lambda única — consolida las 49 funciones anteriores ──────────────────────
 functions:
-  - ${file(./routes/login/serverlessLogin.yml)}
-  - ${file(./routes/clubes/serverlessClubes.yml)}
-  - ${file(./routes/jugadores/serverlessJugadores.yml)}
-  - ${file(./routes/finanzas/serverlessFinanzas.yml)}
-  - ${file(./routes/dashboard/serverlessDashboard.yml)}
-  - ${file(./routes/categorias/serverlessCategorias.yml)}
-  - ${file(./routes/eventos/serverlessEventos.yml)}
-  - ${file(./routes/notifications/serverlessNotifications.yml)}
-  - ${file(./routes/membresia/serverlessMembresia.yml)}
-  - ${file(./routes/pagos/serverlessPagos.yml)}
+  api:
+    handler: handler.handler
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: GET
+      - httpApi:
+          path: /{proxy+}
+          method: POST
+      - httpApi:
+          path: /{proxy+}
+          method: PUT
+      - httpApi:
+          path: /{proxy+}
+          method: DELETE
+      - httpApi:
+          path: /{proxy+}
+          method: PATCH
 
 plugins:
   - serverless-offline
-  
 
+# ─── Empaquetado: un solo bundle esbuild para toda la app ──────────────────────
 package:
-  individually: true
-  exclude:
-    - node_modules/**
-    - .serverless/**
-    - .webpack/**
-    - logs/**
-    - tmp/**
-    - data/**
-    - "**/*.map"
-    - "**/*.zip"
-    - "**/*.md"
-    - "**/*.log"
-
-
-
+  individually: false
 
 build:
   esbuild:
-    bundle: true
-    minify: true
+    bundle: true               # incluye todas las dependencias en el bundle
+    minify: true               # reduce tamaño del bundle
     target: node22
     platform: node
+    sourcemap: false           # no incluir source maps en producción
     external:
-      - aws-sdk
+      - aws-sdk                # disponible en el runtime de Lambda, no bundlear
     banner:
       js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
 
@@ -82,4 +79,3 @@ custom:
   serverless-offline:
     disableCookieValidation: true
     noPrependStage: true
-      

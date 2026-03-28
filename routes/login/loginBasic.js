@@ -120,7 +120,7 @@ export const login = async (event) => {
     }
 
     // 3. Generar tokens y sesión
-    const accessToken = await funciones.generateAccessToken(user.id);
+    const accessToken = funciones.generateAccessToken(user.id);
     const refreshToken = funciones.generateRefreshToken();
     const refreshTokenHash = funciones.hashRefreshToken(refreshToken);
     const expireAt = funciones.refreshTokenExpireAt();
@@ -138,21 +138,15 @@ export const login = async (event) => {
       expire_at: expireAt
     });
 
-// 3. Obtener roles y permisos
-    const roles = await crud.getUserRoles(user.id);
-
-    const permisos = await crud.getUserPermissions(user.id);  
-
+    // 3. Obtener clubes del usuario
     const clubes = await crud.getUserClubs(user.id);
-
-    const plan = await crud.getUserPlan(user.id);
 
     // 4. Construir respuesta
     const response = funciones.buildAuthResponse({
       user,
-      roles ,
-      plan,
-      permisos,
+      roles: [],
+      plan: null,
+      permisos: [],
       clubes,
       accessToken,
       refreshToken,
@@ -239,17 +233,15 @@ export const getProfile = async (event) => {
       return { statusCode: 404, body: JSON.stringify({ message: 'Usuario no encontrado' }) };
     }
 
-    const roles = await crud.getUserRoles(userId);
-    const permisos = await crud.getUserPermissions(userId);
     const clubes = await crud.getUserClubs(userId);
 
-    // 3. Respuesta (similar a login pero sin nuevos tokens)
+    // 3. Respuesta
     return {
       statusCode: 200,
       body: JSON.stringify({
         usuario: funciones.sanitizeUserData(user),
-        roles,
-        permisos,
+        roles: [],
+        permisos: [],
         clubes
       }),
     };
@@ -257,6 +249,122 @@ export const getProfile = async (event) => {
     console.error("GetProfile Error:", error);
     return {
       statusCode: error.message === 'Token inválido o expirado' ? 401 : 500,
+      body: JSON.stringify({ message: error.message }),
+    };
+  }
+};
+
+export const forgotPassword = async (event) => {
+  try {
+    const apiKeyValidation = validateApiKey(event);
+    if (!apiKeyValidation.valid) return apiKeyValidation.response;
+
+    const body = JSON.parse(event.body);
+    const { email } = body;
+
+    if (!email) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Email es obligatorio' }),
+      };
+    }
+
+    // Respuesta siempre igual para no revelar si el email existe
+    const genericResponse = {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Si el correo existe recibirás un enlace para restablecer tu contraseña.' }),
+    };
+
+    const user = await crud.findUserByEmail(funciones.normalizeEmail(email));
+    if (!user) return genericResponse;
+
+    const resetToken = funciones.generateResetToken();
+    const expiresAt = funciones.resetTokenExpireAt(1);
+
+    await crud.setResetToken(user.id, resetToken, expiresAt);
+
+    const template = getTemplate(NOTIFICATION_TYPES.PASSWORD_RESET, {
+      nombre: user.metadata?.nombre,
+      token: resetToken,
+    });
+
+    const emailResult = await sendEmail({
+      to: email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+
+    if (!emailResult.success) {
+      console.error('Error enviando email de reset:', emailResult.error);
+    }
+
+    return genericResponse;
+
+  } catch (error) {
+    console.error('ForgotPassword Error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Error procesando la solicitud' }),
+    };
+  }
+};
+
+export const resetPassword = async (event) => {
+  try {
+    const apiKeyValidation = validateApiKey(event);
+    if (!apiKeyValidation.valid) return apiKeyValidation.response;
+
+    const body = JSON.parse(event.body);
+    const { token, password } = body;
+
+    if (!token || !password) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Token y nueva contraseña son obligatorios' }),
+      };
+    }
+
+    if (password.length < 8) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'La contraseña debe tener al menos 8 caracteres' }),
+      };
+    }
+
+    // 1. Buscar usuario por token
+    const user = await crud.findUserByResetToken(token);
+    if (!user) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Token inválido o ya utilizado' }),
+      };
+    }
+
+    // 2. Verificar expiración
+    if (new Date(user.reset_token_expires_at) < new Date()) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'El enlace ha expirado. Solicita uno nuevo.' }),
+      };
+    }
+
+    // 3. Actualizar credenciales
+    const { hash, salt } = await funciones.hashPassword(password);
+    await crud.setLocalCredentials(user.id, hash, salt);
+
+    // 4. Invalidar token (uso único)
+    await crud.clearResetToken(user.id);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Contraseña actualizada exitosamente. Ya puedes iniciar sesión.' }),
+    };
+
+  } catch (error) {
+    console.error('ResetPassword Error:', error);
+    return {
+      statusCode: 500,
       body: JSON.stringify({ message: error.message }),
     };
   }

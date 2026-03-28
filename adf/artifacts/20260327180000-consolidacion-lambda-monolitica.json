@@ -1,0 +1,122 @@
+{
+  "artifact_id": "20260327180000-consolidacion-lambda-monolitica",
+  "timestamp": "2026-03-27T18:00:00Z",
+  "task": {
+    "description": "Consolidar 49 Lambda functions individuales en 1 sola Lambda monolítica controlada con router interno, reduciendo costos AWS y tamaño de deployment",
+    "complexity": "high",
+    "layers_affected": ["backend", "config"]
+  },
+  "execution": {
+    "skills_used": [
+      "adf:orchestrate",
+      "adf:plan",
+      "specialists:backend",
+      "validators:code",
+      "validators:api",
+      "observe:log"
+    ],
+    "phases": [
+      {
+        "phase": "planning",
+        "skill": "adf:plan",
+        "output": "Plan de 3 fases: router interno → handler único → serverless.yml optimizado"
+      },
+      {
+        "phase": "execution",
+        "skill": "specialists:backend",
+        "files_changed": ["utils/router.js", "handler.js"],
+        "output": "Router lightweight sin dependencias + handler que importa los 13 módulos existentes y mapea las 52 rutas"
+      },
+      {
+        "phase": "execution",
+        "skill": "specialists:backend",
+        "files_changed": ["serverless.yml"],
+        "output": "Serverless config reducido a 1 función con catch-all /{proxy+}, memorySize 512MB, runtime nodejs22.x"
+      },
+      {
+        "phase": "validation",
+        "skill": "validators:code",
+        "result": "passed",
+        "issues_found": 0,
+        "issues_detail": []
+      },
+      {
+        "phase": "validation",
+        "skill": "validators:api",
+        "result": "passed",
+        "issues_found": 0,
+        "issues_detail": ["Todos los contratos de API originales se mantienen sin cambios"]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "decision": "Router interno custom (utils/router.js) sin Express ni Fastify",
+      "reasoning": "serverless-http + Express agregaría ~120KB y overhead de middleware. El router custom es 60 líneas, sin dependencias, y pasa el event original directamente a los handlers existentes (zero cambios en lógica de negocio).",
+      "alternatives_discarded": [
+        "Express + serverless-http: más familiar pero con overhead innecesario",
+        "Fastify: más performante pero mayor complejidad de setup para este caso"
+      ]
+    },
+    {
+      "decision": "Enriquecer el event con httpMethod normalizado",
+      "reasoning": "HTTP API Gateway v2 expone el método en requestContext.http.method, NO en event.httpMethod. El handler de pagos/commit usa event.httpMethod explícitamente para detectar POST. Sin esta normalización el commit de Webpay fallaría.",
+      "alternatives_discarded": [
+        "Modificar pagos/commit: arriesgado, toca lógica de pagos en producción"
+      ]
+    },
+    {
+      "decision": "Orden de rutas: literales antes que paramétricas",
+      "reasoning": "El router usa first-match. /jugadores/buscar y /jugadores/plantilla deben ir antes de /jugadores/{id} para no capturar 'buscar' o 'plantilla' como un ID. Mismo criterio para /finanzas/movimientos/lote vs /movimientos y /suscripcion/historial vs /suscripcion.",
+      "alternatives_discarded": [
+        "Ordenar por especificidad automática: agrega complejidad al router"
+      ]
+    },
+    {
+      "decision": "memorySize: 512MB en lugar de 1024MB (default)",
+      "reasoning": "La Lambda consolidada no hace procesamiento intensivo en CPU. El cuello de botella es I/O (Supabase, Transbank). 512MB reduce costo por invocación ~50% manteniendo misma performance de I/O.",
+      "alternatives_discarded": [
+        "256MB: riesgo de OOM con pdfkit o carga masiva Excel",
+        "1024MB: costo innecesario para workload I/O-bound"
+      ]
+    },
+    {
+      "decision": "runtime: nodejs22.x (actualizado desde nodejs20.x)",
+      "reasoning": "package.json ya declara engines: node >=22. El target de esbuild ya era node22. La inconsistencia preexistente se corrige alineando el runtime.",
+      "alternatives_discarded": [
+        "Mantener nodejs20.x: inconsistente con package.json y esbuild target"
+      ]
+    },
+    {
+      "decision": "package.individually: false",
+      "reasoning": "Con 1 sola función, individually no tiene efecto práctico pero false es semánticamente correcto y evita overhead de Serverless Framework intentando crear N bundles.",
+      "alternatives_discarded": []
+    }
+  ],
+  "result": {
+    "status": "success",
+    "summary": "49 Lambdas consolidadas en 1 con router interno de 60 líneas, zero cambios en handlers existentes, estimación de reducción de costos >60%",
+    "files_created": [
+      "utils/router.js",
+      "handler.js"
+    ],
+    "files_modified": [
+      "serverless.yml"
+    ],
+    "files_deleted": [],
+    "new_env_vars": [],
+    "migrations_created": [],
+    "breaking_changes": []
+  },
+  "validation_summary": {
+    "code": "passed",
+    "security": "skipped — no se modificó lógica de negocio, auth ni pagos",
+    "api": "passed"
+  },
+  "next_steps": [
+    "Ejecutar 'npm run dev' y probar endpoints críticos: POST /auth/login, GET /clubes, GET /auth/verify",
+    "Ejecutar 'serverless deploy --stage dev' y verificar que el ZIP final sea < 20MB",
+    "Si algún endpoint retorna 404, verificar ordering en handler.js route table",
+    "Opcional: si carga masiva de jugadores tiene timeouts, considerar separar esa función específica"
+  ]
+}

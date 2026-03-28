@@ -40,6 +40,29 @@ export const getTemplate = (type, data) => {
           text: `Hola ${data.nombre}, tu cuenta ha sido verificada exitosamente.`
         };
 
+    case NOTIFICATION_TYPES.PASSWORD_RESET:
+      return {
+        subject: 'Recupera tu contraseña en MiClub',
+        html: `
+          <div style="font-family: Arial, sans-serif; color: #333;">
+            <h1>Recuperación de contraseña</h1>
+            <p>Hola${data.nombre ? ` ${data.nombre}` : ''},</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
+            <p>Haz clic en el botón para crear una nueva contraseña. Este enlace es de un solo uso y expirará en 1 hora.</p>
+            <p style="margin: 24px 0;">
+              <a href="${frontendUrl}/reset-password?token=${data.token}"
+                 style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Restablecer contraseña
+              </a>
+            </p>
+            <p>O copia y pega este enlace en tu navegador:</p>
+            <p style="word-break: break-all;">${frontendUrl}/reset-password?token=${data.token}</p>
+            <p style="color: #888; font-size: 0.875rem;">Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña no será modificada.</p>
+          </div>
+        `,
+        text: `Recupera tu contraseña usando este enlace (válido por 1 hora): ${frontendUrl}/reset-password?token=${data.token}`
+      };
+
     case NOTIFICATION_TYPES.SUBSCRIPTION_CHANGE_REQUEST:
         return {
             subject: 'Solicitud de Cambio de Plan Recibida',

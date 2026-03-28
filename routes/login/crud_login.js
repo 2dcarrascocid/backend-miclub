@@ -102,7 +102,7 @@ export async function setLocalCredentials(userId, passwordHash, salt) {
       password_hash: passwordHash,
       password_salt: salt,
       ultimo_cambio: new Date().toISOString(),
-    })
+    }, { onConflict: 'usuario_id' })
     .select()
     .single();
 
@@ -168,101 +168,14 @@ export async function getUserRoles(userId) {
 }
 
 export async function getUserPermissions(userId) {
-  // 1. Obtener roles del usuario
-  const { data: userRoles, error: userRolesError } = await supabase
-    .from("el_dep_usuario_roles")
-    .select("*")
-    .eq("usuario_id", userId);
-
-  if (userRolesError) throw new Error("Error obteniendo roles: " + userRolesError.message);
-  if (!userRoles || userRoles.length === 0) return [];
-
-  const roleIds = userRoles.map((r) => r.rol_id);
-
-  // 2. Obtener detalles de roles
-  const { data: roles, error: rolesError } = await supabase
-    .from("el_dep_roles")
-    .select("*")
-    .in("id", roleIds);
-
-  if (rolesError) throw new Error("Error obteniendo detalles de roles: " + rolesError.message);
-
-  // 3. Obtener planes asociados (asumiendo que el rol tiene plan_id)
-  const planIds = roles
-    .map((r) => r.id_plan)
-    .filter((id) => id); // Filtrar nulos
-
-  if (planIds.length === 0) return [];
-
-  // 4. Obtener detalles de planes (opcional, pero solicitado en el flujo)
-  const { error: planesError } = await supabase
-    .from("el_dep_planes")
-    .select("*")
-    .in("id", planIds);
-
-  if (planesError) throw new Error("Error obteniendo planes: " + planesError.message);
-
-  // 5. Obtener menú y permisos
-  const { data: menuItems, error: menuError } = await supabase
-    .from("el_dep_plan_menu")
-    .select(`
-      puede_editar,
-      menu:el_dep_menu (
-        nombre,
-        ruta,
-        icono
-      )
-    `)
-    .in("plan_id", planIds);
-
-  if (menuError) throw new Error("Error obteniendo permisos de menú: " + menuError.message);
-
-  // Mapear respuesta
-  return menuItems.map((item) => ({
-    nombre: item.menu?.nombre,
-    ruta: item.menu?.ruta,
-    icono: item.menu?.icono,
-    puede_editar: item.puede_editar,
-  }));
+  // Acceso total — un solo tipo de usuario con acceso a todos los módulos.
+  // Retorna array vacío; el router de frontend no restringe por permisos.
+  return [];
 }
 
-//actulizar esta cuncion getUserPlan
 export async function getUserPlan(userId) {
-  // 1. Obtener roles del usuario
-  const { data: userRoles, error: userRolesError } = await supabase
-    .from("el_dep_usuario_roles")
-    .select("*")
-    .eq("usuario_id", userId);
-
-  if (userRolesError) throw new Error("Error obteniendo roles: " + userRolesError.message);
-  if (!userRoles || userRoles.length === 0) return [];
-
-  const roleIds = userRoles.map((r) => r.rol_id);
-
-  // 2. Obtener detalles de roles
-  const { data: roles, error: rolesError } = await supabase
-    .from("el_dep_roles")
-    .select("*")
-    .in("id", roleIds);
-
-  if (rolesError) throw new Error("Error obteniendo detalles de roles: " + rolesError.message);
-
-  // 3. Obtener planes asociados (asumiendo que el rol tiene plan_id)
-  const planIds = roles
-    .map((r) => r.id_plan)
-    .filter((id) => id); // Filtrar nulos
-
-  if (planIds.length === 0) return [];
-
-  // 4. Obtener detalles de planes
-  const { data: planes, error: planesError } = await supabase
-    .from("el_dep_planes")
-    .select("*")
-    .in("id", planIds);
-
-  if (planesError) throw new Error("Error obteniendo planes: " + planesError.message);
-
-  return planes;
+  // Acceso total — plan unificado sin restricciones de módulos.
+  return [];
 }
 
 
@@ -365,6 +278,39 @@ export async function registerLocalUser({ email, password, metadata, verificatio
   await assignRoleToUser(user.id, "administrador_basic");
 
   return user;
+}
+
+/* -----------------------------------------
+   🔑 RESET TOKEN DE CONTRASEÑA
+----------------------------------------- */
+
+export async function setResetToken(userId, token, expiresAt) {
+  const { error } = await supabase
+    .from('el_dep_identidades')
+    .update({ reset_token: token, reset_token_expires_at: expiresAt })
+    .eq('id', userId);
+
+  if (error) throw new Error('Error guardando reset token: ' + error.message);
+}
+
+export async function findUserByResetToken(token) {
+  const { data, error } = await supabase
+    .from('el_dep_identidades')
+    .select('*')
+    .eq('reset_token', token)
+    .single();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function clearResetToken(userId) {
+  const { error } = await supabase
+    .from('el_dep_identidades')
+    .update({ reset_token: null, reset_token_expires_at: null })
+    .eq('id', userId);
+
+  if (error) throw new Error('Error limpiando reset token: ' + error.message);
 }
 
 export async function getUserClubs(userId) {

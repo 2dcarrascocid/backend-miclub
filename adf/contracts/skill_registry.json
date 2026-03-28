@@ -1,0 +1,239 @@
+{
+  "version": "1.0.0",
+  "project": "fplaychile-miclub",
+  "framework": "ADF — Agentic Development Framework",
+  "last_updated": "2026-03-27",
+  "skills": {
+    "orchestrator": [
+      {
+        "id": "adf:orchestrate",
+        "command": "/adf:orchestrate",
+        "file": ".claude/commands/adf/orchestrate.md",
+        "layer": "orchestrator",
+        "description": "Central coordinator: decides which skills to use, divides complex tasks, controls execution flow, ensures validation before finishing",
+        "input": "Task description in natural language",
+        "output": "Structured execution summary JSON",
+        "preconditions": [
+          "Task is clearly described"
+        ],
+        "postconditions": [
+          "At least one validator executed",
+          "Artifact generated if code was changed",
+          "No existing functionality removed without approval"
+        ],
+        "always_run_validators": true,
+        "triggers_security_validator_when": ["payments touched", "auth touched"],
+        "triggers_api_validator_when": ["new endpoint created", "endpoint modified"]
+      },
+      {
+        "id": "adf:plan",
+        "command": "/adf:plan",
+        "file": ".claude/commands/adf/plan.md",
+        "layer": "orchestrator",
+        "description": "Decomposes complex tasks into ordered, atomic, dependency-aware steps with specialist assignments",
+        "input": "Task description",
+        "output": "Structured plan JSON with phases, steps, specialists, dependencies, and required validators",
+        "preconditions": [
+          "Task description available",
+          "Relevant files read before planning"
+        ],
+        "postconditions": [
+          "Each step has exactly one specialist assigned",
+          "Dependencies between steps are explicit",
+          "observe:log included as final step",
+          "Required validators identified with justification"
+        ]
+      }
+    ],
+    "specialists": [
+      {
+        "id": "specialists:backend",
+        "command": "/specialists:backend",
+        "file": ".claude/commands/specialists/backend.md",
+        "layer": "specialist",
+        "domain": "routes/, services/, utils/",
+        "description": "Lambda handler creation/modification, Serverless YAML config, service integration",
+        "input": "Backend task description with context",
+        "output": "Lambda handler .js file + YAML config update",
+        "preconditions": [
+          "Plan step defined",
+          "Files to modify identified and read"
+        ],
+        "postconditions": [
+          "Handler exported with correct name",
+          "API Key validated as first step",
+          "club_id filter applied in DB queries",
+          "YAML entry added",
+          "No hardcoded secrets or IDs",
+          "ES Modules only (import/export)"
+        ],
+        "default_validators": ["validators:code", "validators:api"]
+      },
+      {
+        "id": "specialists:frontend",
+        "command": "/specialists:frontend",
+        "file": ".claude/commands/specialists/frontend.md",
+        "layer": "specialist",
+        "domain": "../frontend-miclub/src/",
+        "description": "Vue 3 component/view creation, Pinia store updates, Axios API client integration",
+        "input": "Frontend task description",
+        "output": "Vue SFC + optional store/router/API client updates",
+        "preconditions": [
+          "Plan step defined",
+          "Existing component read if modifying"
+        ],
+        "postconditions": [
+          "Uses <script setup> syntax",
+          "loading, error, data states handled",
+          "Axios from src/api/index.js only",
+          "Lazy loading for new routes",
+          "No hardcoded API URLs"
+        ],
+        "default_validators": ["validators:code"]
+      },
+      {
+        "id": "specialists:database",
+        "command": "/specialists:database",
+        "file": ".claude/commands/specialists/database.md",
+        "layer": "specialist",
+        "domain": "services/, scripts/*.sql",
+        "description": "Supabase query design, schema migrations, multitenancy enforcement",
+        "input": "Database task description with table context",
+        "output": "Supabase query code + optional migration SQL file",
+        "preconditions": [
+          "Table schema available (scripts/db_schema.sql read)",
+          "club_id requirement understood"
+        ],
+        "postconditions": [
+          "club_id filter applied in all business queries",
+          "{ data, error } destructured and handled",
+          "No SQL injection (no string concatenation)",
+          "Specific columns in SELECT (no *)",
+          "Migration file created if schema changed"
+        ],
+        "default_validators": ["validators:code"]
+      },
+      {
+        "id": "specialists:payments",
+        "command": "/specialists:payments",
+        "file": ".claude/commands/specialists/payments.md",
+        "layer": "specialist",
+        "domain": "routes/pagos/",
+        "description": "Transbank/Webpay Plus integration, payment flow, idempotency",
+        "input": "Payment task description",
+        "output": "Payment handler + DB transaction records",
+        "preconditions": [
+          "WEBPAY_HOST, WEBPAY_API_KEY, WEBPAY_COMMERCE_CODE available",
+          "Transaction DB table structure known"
+        ],
+        "postconditions": [
+          "validators:security ALWAYS required after this specialist",
+          "No hardcoded Transbank credentials",
+          "Transaction registered in DB before calling Transbank",
+          "Idempotency implemented",
+          "AUTHORIZED status verified before crediting"
+        ],
+        "mandatory_validators": ["validators:security"],
+        "default_validators": ["validators:code", "validators:api", "validators:security"]
+      },
+      {
+        "id": "specialists:auth",
+        "command": "/specialists:auth",
+        "file": ".claude/commands/specialists/auth.md",
+        "layer": "specialist",
+        "domain": "routes/login/, utils/",
+        "description": "JWT handling, API key validation, login/register flows, role verification",
+        "input": "Auth task description",
+        "output": "Auth handler or middleware update",
+        "preconditions": [
+          "ACCESS_TOKEN_SECRET available in env",
+          "Existing middlewares read before modifying"
+        ],
+        "postconditions": [
+          "validators:security ALWAYS required after this specialist",
+          "No hardcoded secrets",
+          "Passwords hashed with bcrypt cost >= 12",
+          "JWT has expiration defined",
+          "Generic error messages (no user existence disclosure)"
+        ],
+        "mandatory_validators": ["validators:security"],
+        "default_validators": ["validators:code", "validators:security"]
+      }
+    ],
+    "validators": [
+      {
+        "id": "validators:code",
+        "command": "/validators:code",
+        "file": ".claude/commands/validators/code.md",
+        "layer": "validator",
+        "description": "Code quality, ES Module conventions, handler structure, Vue 3 patterns",
+        "input": "Code or file path to validate",
+        "output": "JSON validation report with severity-classified issues",
+        "blocks_on_severity": ["CRITICAL"],
+        "run_after": ["specialists:backend", "specialists:frontend", "specialists:database"]
+      },
+      {
+        "id": "validators:security",
+        "command": "/validators:security",
+        "file": ".claude/commands/validators/security.md",
+        "layer": "validator",
+        "description": "OWASP checks, JWT security, SQL injection, Transbank security, multitenancy isolation",
+        "input": "Code or area to audit",
+        "output": "JSON security audit report with severity-classified vulnerabilities",
+        "blocks_on_severity": ["CRITICAL", "HIGH"],
+        "mandatory_after": ["specialists:payments", "specialists:auth"],
+        "run_after": ["specialists:backend"]
+      },
+      {
+        "id": "validators:api",
+        "command": "/validators:api",
+        "file": ".claude/commands/validators/api.md",
+        "layer": "validator",
+        "description": "REST conventions, response structure, YAML config correctness, Swagger docs",
+        "input": "Endpoint or route module to validate",
+        "output": "JSON API contract validation report",
+        "blocks_on_severity": ["CRITICAL"],
+        "run_after": ["specialists:backend"],
+        "triggered_when": ["new endpoint created", "endpoint path or method changed"]
+      }
+    ],
+    "observability": [
+      {
+        "id": "observe:log",
+        "command": "/observe:log",
+        "file": ".claude/commands/observe/log.md",
+        "layer": "observability",
+        "description": "Creates structured JSON artifact documenting task execution, decisions, and validation results",
+        "input": "Task execution summary (can be passed from orchestrator output)",
+        "output": "JSON artifact saved to adf/artifacts/{artifact_id}.json",
+        "schema": "adf/contracts/task.schema.json",
+        "run_when": "After any task that modified code files",
+        "skip_when": "Read-only analysis or simple queries"
+      },
+      {
+        "id": "observe:evidence",
+        "command": "/observe:evidence",
+        "file": ".claude/commands/observe/evidence.md",
+        "layer": "observability",
+        "description": "Generates human-readable Markdown evidence report for audit and review",
+        "input": "Task scope, artifact ID, or area to document",
+        "output": "Markdown evidence report (displayed or saved on request)"
+      }
+    ]
+  },
+  "execution_rules": {
+    "always_validate_before_finish": true,
+    "mandatory_security_validator_for": ["payments", "auth"],
+    "mandatory_api_validator_for": ["new_endpoints", "modified_endpoints"],
+    "mandatory_code_validator_for": ["all_code_changes"],
+    "artifact_required_when": "code files are created or modified",
+    "backward_compat_required": true,
+    "flow_order": [
+      "adf:orchestrate",
+      "adf:plan",
+      "specialists:*",
+      "validators:*",
+      "observe:log"
+    ]
+  }
+}

@@ -81,7 +81,7 @@ export const login = async (event) => {
     }
 
     // 3. Generar tokens y sesión
-    const accessToken = await funciones.generateAccessToken(userId);
+    const accessToken = funciones.generateAccessToken(userId);
     const refreshToken = funciones.generateRefreshToken();
     const refreshTokenHash = funciones.hashRefreshToken(refreshToken);
     const expireAt = funciones.refreshTokenExpireAt();

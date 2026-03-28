@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"c:\\\\Users\\\\Delta\\\\Documents\\\\PROYECTOS\\\\2025\\\\FPLAYCHILE\\\\frontend-miclub\\\\src\\\\components\"\" 2>/dev/null || echo \"Directory not found \")"
+    ]
+  }
+}

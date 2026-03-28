@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ADF Task Contract",
+  "description": "Schema for ADF task definition, execution tracking and artifact generation",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["artifact_id", "timestamp", "task", "execution", "result", "validation_summary"],
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^[0-9]{14}-[a-z0-9-]+$",
+      "description": "Unique artifact ID: {YYYYMMDDHHmmss}-{kebab-slug}",
+      "examples": ["20260327143022-agregar-endpoint-jugadores"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the artifact was created"
+    },
+    "task": {
+      "type": "object",
+      "required": ["description", "complexity", "layers_affected"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Clear description of what the task accomplished"
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "layers_affected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["backend", "frontend", "database", "payments", "auth", "config", "observability"]
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "required": ["skills_used", "phases"],
+      "properties": {
+        "skills_used": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of ADF skills invoked during execution",
+          "examples": [["adf:plan", "specialists:backend", "validators:code", "observe:log"]]
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["phase", "skill", "output"],
+            "properties": {
+              "phase": {
+                "type": "string",
+                "enum": ["planning", "execution", "validation", "observability"]
+              },
+              "skill": {
+                "type": "string",
+                "description": "Skill ID used in this phase"
+              },
+              "files_changed": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Files created or modified in this phase"
+              },
+              "output": {
+                "type": "string",
+                "description": "Summary of what this phase produced"
+              },
+              "result": {
+                "type": "string",
+                "enum": ["passed", "failed", "passed_with_warnings", "skipped"],
+                "description": "For validation phases"
+              },
+              "issues_found": {
+                "type": "integer",
+                "description": "Number of issues found (for validators)"
+              },
+              "issues_detail": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Brief description of each issue found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["decision", "reasoning"],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "description": "What was decided"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Why this decision was made"
+          },
+          "alternatives_discarded": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Alternatives that were considered but not chosen"
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["status", "summary"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["success", "partial", "failed"],
+          "description": "Overall task outcome"
+        },
+        "summary": {
+          "type": "string",
+          "description": "One-sentence executive summary of the result"
+        },
+        "files_created": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relative paths of newly created files"
+        },
+        "files_modified": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relative paths of modified files"
+        },
+        "files_deleted": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relative paths of deleted files"
+        },
+        "new_env_vars": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "New environment variables introduced"
+        },
+        "migrations_created": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "SQL migration files created"
+        },
+        "breaking_changes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Any breaking changes introduced"
+        }
+      }
+    },
+    "validation_summary": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["passed", "passed_with_warnings", "failed", "skipped"],
+          "description": "Result of validators:code"
+        },
+        "security": {
+          "type": "string",
+          "enum": ["passed", "passed_with_warnings", "failed", "skipped"],
+          "description": "Result of validators:security"
+        },
+        "api": {
+          "type": "string",
+          "enum": ["passed", "passed_with_warnings", "failed", "skipped"],
+          "description": "Result of validators:api"
+        }
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Recommended follow-up actions or known pending items"
+    }
+  }
+}

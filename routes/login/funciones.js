@@ -60,13 +60,9 @@ export function verifyPassword(password, hash, salt) {
    🔐 GENERACIÓN DE TOKENS (JWT)
 --------------------------------------------------------- */
 
-export async function generateAccessToken(userId) {
-
-  const rol = await crud.getUserRoles(userId)
-
+export function generateAccessToken(userId) {
   const payload = {
     sub: userId,
-    roles: rol
   };
 
   return jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXP });
@@ -205,6 +201,16 @@ export function generateVerificationToken() {
 }
 
 export function verificationTokenExpireAt(hours = 24) {
+  const date = new Date();
+  date.setHours(date.getHours() + hours);
+  return date.toISOString();
+}
+
+export function generateResetToken() {
+  return randomBytes(32).toString('hex');
+}
+
+export function resetTokenExpireAt(hours = 1) {
   const date = new Date();
   date.setHours(date.getHours() + hours);
   return date.toISOString();
