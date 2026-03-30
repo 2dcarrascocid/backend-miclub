@@ -44,6 +44,13 @@ $ARGUMENTS
 - [ ] Credenciales Transbank en `process.env` — **CRITICAL si hardcodeadas**
 - [ ] `buyOrder` único por transacción
 
+### Recuperación de Contraseña — CRÍTICO (si aplica)
+- [ ] Respuesta de `/forgot-password` siempre idéntica, independiente de si el email existe — **CRITICAL si revela existencia**
+- [ ] Token de reset de uso único — `clearResetToken` llamado inmediatamente después de actualizar contraseña — **CRITICAL si no**
+- [ ] Expiración del token verificada antes de procesar (`reset_token_expires_at`) — **HIGH si no**
+- [ ] Token de reset no expuesto en logs ni responses — **HIGH si aparece**
+- [ ] Nueva contraseña hasheada con PBKDF2 antes de almacenar — **CRITICAL si plain text**
+
 ### Frontend (si aplica)
 - [ ] No hay `v-html` con contenido de API o usuario — **CRITICAL**
 - [ ] No hay secrets en código frontend (visible al usuario)

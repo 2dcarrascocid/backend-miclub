@@ -1,0 +1,75 @@
+{
+  "artifact_id": "20260327220000-actualizacion-skills-adf",
+  "task": {
+    "description": "Actualización de skills ADF y skills globales para reflejar el estado real del proyecto post-consolidación",
+    "complexity": "medium",
+    "layers_affected": ["observability"]
+  },
+  "execution": {
+    "skills_used": ["observe:log"],
+    "phases": [
+      {
+        "phase": "Auditoría de skills existentes",
+        "actions": ["Lectura de todos los archivos .claude/commands/ y adf/"]
+      },
+      {
+        "phase": "Actualización de specialists",
+        "actions": [
+          "specialists/auth.md — Stack actualizado a PBKDF2, generateAccessToken síncrono, flujo password reset documentado, arquitectura usuario único",
+          "specialists/backend.md — Patrón Lambda monolítica: rutas en handler.js, sin YAML por dominio, orden de rutas documentado",
+          "specialists/frontend.md — Menú estático en Navbar, sin authStore.permissions, router guards simplificados, vistas auth documentadas"
+        ]
+      },
+      {
+        "phase": "Actualización de validators y ADF core",
+        "actions": [
+          "validators/security.md — Sección password reset añadida: respuesta genérica, token one-time, expiración, hash",
+          "adf/README.md — Tabla de decisiones arquitecturales actuales añadida, dominios de specialists corregidos",
+          "global/new-feature.md — Backend plan actualizado para Lambda monolítica"
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "decision": "specialists/auth.md reescrito completamente",
+      "reasoning": "Contenía referencias a bcryptjs (no usado), generateAccessToken async (ahora sync), y patrón de validación apiKeyError incorrecto",
+      "alternatives_discarded": ["Edición parcial — demasiados cambios interconectados"]
+    },
+    {
+      "decision": "specialists/backend.md reescrito completamente",
+      "reasoning": "Contenía patrón YAML por función que ya no aplica post-consolidación Lambda",
+      "alternatives_discarded": ["Solo editar la sección YAML — riesgo de inconsistencia"]
+    },
+    {
+      "decision": "Tabla de decisiones añadida a adf/README.md",
+      "reasoning": "Las decisiones arquitecturales no estaban documentadas en ningún lugar del ADF, causando que skills generaran código inconsistente con el estado real",
+      "alternatives_discarded": ["Documentar en CLAUDE.md — duplicación innecesaria"]
+    }
+  ],
+  "result": {
+    "status": "success",
+    "files_modified": [
+      ".claude/commands/specialists/auth.md",
+      ".claude/commands/specialists/backend.md",
+      ".claude/commands/specialists/frontend.md",
+      ".claude/commands/validators/security.md",
+      "adf/README.md"
+    ],
+    "files_created": [
+      "adf/artifacts/20260327220000-actualizacion-skills-adf.json"
+    ],
+    "global_files_modified": [
+      "C:/Users/Delta/.claude/commands/new-feature.md"
+    ]
+  },
+  "validation_summary": {
+    "code": { "passed": true, "issues": [] },
+    "security": { "passed": true, "issues": [] },
+    "api": { "skipped": true, "reason": "No hay cambios en endpoints" }
+  },
+  "next_steps": [
+    "Verificar que los demás specialists (database, payments) no necesiten actualización",
+    "Considerar actualizar adf/contracts/skill_registry.json con los nuevos contratos"
+  ]
+}

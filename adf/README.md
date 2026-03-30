@@ -61,11 +61,11 @@ adf/
 ### Layer 2: Specialists
 | Skill | Comando | Dominio |
 |-------|---------|---------|
-| Backend | `/specialists:backend` | `routes/`, `services/`, `utils/` |
+| Backend | `/specialists:backend` | `routes/`, `handler.js`, `utils/router.js` |
 | Frontend | `/specialists:frontend` | `../frontend-miclub/src/` |
-| Database | `/specialists:database` | Supabase queries, `scripts/*.sql` |
+| Database | `/specialists:database` | Supabase queries, `sql/*.sql` |
 | Payments | `/specialists:payments` | `routes/pagos/`, Transbank SDK |
-| Auth | `/specialists:auth` | `routes/login/`, `utils/auth*.js` |
+| Auth | `/specialists:auth` | `routes/login/`, `utils/apiKeyMiddleware.js` |
 
 ### Layer 3: Validators
 | Skill | Comando | Bloquea en |
@@ -142,6 +142,20 @@ Siempre reemplazar los placeholders `{...}` antes de usar.
 | Tarea compleja (múltiples capas) | Flujo completo con fases explícitas |
 | Hotfix urgente | Specialist directo + `/validators:security` obligatorio |
 | Investigación/análisis | Sin ADF — solo lectura de código |
+
+---
+
+## Decisiones de Arquitectura Actuales
+
+| Decisión | Detalle |
+|----------|---------|
+| Lambda monolítica | 1 sola función `api` con `/{proxy+}`. Nuevas rutas van en `handler.js`, no en YAML |
+| Usuario único | Sin roles/permisos activos. `getUserPermissions()` y `getUserPlan()` retornan `[]` |
+| Menú estático | `Navbar.vue` tiene array estático. No depende de `authStore.permissions` |
+| Hash PBKDF2 | `node:crypto` pbkdf2, 310k iteraciones. No se usa bcrypt |
+| JWT síncrono | `generateAccessToken` es función síncrona — no usar `await` |
+| Password reset | Token 32 bytes, expira en 1h, uso único, respuesta siempre genérica |
+| Upsert credentials | `{ onConflict: 'usuario_id' }` obligatorio en `el_dep_credenciales_locales` |
 
 ---
 
