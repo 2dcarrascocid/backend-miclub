@@ -58,20 +58,23 @@ export const crear = async (event) => {
             };
         }
 
-        let folio = folioInput;
-        if (!folio && es_jugador) {
-            const { data: maxFolioData, error: maxFolioError } = await supabase
+        // Siempre auto-asignar folio cuando es jugador: busca el menor número disponible
+        let folio = null;
+        if (es_jugador) {
+            const { data: activeFolios, error: folioError } = await supabase
                 .from('el_dep_jugadores')
                 .select('folio')
                 .eq('club_id', clubId)
+                .eq('activo', true)
                 .not('folio', 'is', null)
-                .order('folio', { ascending: false })
-                .limit(1);
+                .order('folio', { ascending: true });
 
-            if (maxFolioError) throw maxFolioError;
+            if (folioError) throw folioError;
 
-            const currentMax = maxFolioData.length > 0 ? maxFolioData[0].folio : 0;
-            folio = currentMax + 1;
+            const usedFolios = new Set(activeFolios.map(j => j.folio));
+            let next = 1;
+            while (usedFolios.has(next)) next++;
+            folio = next;
         }
 
         const { data, error } = await supabase
@@ -116,7 +119,7 @@ export const listar = async (event) => {
 
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
-        const { next, categoria } = event.queryStringParameters || {};
+        const { next, categoria, busqueda } = event.queryStringParameters || {};
 
         const isOwner = await verifyClubOwnership(clubId, userId);
         if (!isOwner) {
@@ -129,50 +132,68 @@ export const listar = async (event) => {
         const limit = 10;
         const offset = next ? decodeNext(next)?.offset || 0 : 0;
 
-        // Construir query base
-        let query = supabase
-            .from('el_dep_jugadores')
-            .select('*', { count: 'exact', head: true })
-            .eq('club_id', clubId);
-
-        // Aplicar filtros según categoría
+        // Resolver rango de edad si se pasó un UUID de categoría
         const today = new Date();
         const getBirthDateLimit = (years) => {
             const d = new Date(today);
             d.setFullYear(d.getFullYear() - years);
-            return d.toISOString().split('T')[0]; // YYYY-MM-DD
+            return d.toISOString().split('T')[0];
         };
 
-        if (categoria === 'eliminados') {
-            query = query.eq('activo', false);
-        } else {
-            // Por defecto solo activos para el resto de categorías
-            query = query.eq('activo', true);
+        let categoriaData = null;
+        if (categoria && categoria !== 'eliminados' && categoria !== 'todos') {
+            const { data: cat, error: catError } = await supabase
+                .from('el_dep_categorias')
+                .select('id, nombre, edad_desde, edad_hasta')
+                .eq('id', categoria)
+                .eq('id_club', clubId)
+                .single();
 
-            if (categoria === 'dorados') {
-                // >= 55 años: Nacieron antes o en la fecha de hace 55 años
-                query = query.lte('fecha_nacimiento', getBirthDateLimit(55));
-            } else if (categoria === 'super') {
-                // 46-54 años
-                // Nacieron después de hace 55 años Y antes o en hace 46 años
-                query = query
-                    .gt('fecha_nacimiento', getBirthDateLimit(55))
-                    .lte('fecha_nacimiento', getBirthDateLimit(46));
-            } else if (categoria === 'senior') {
-                // 35-45 años
-                query = query
-                    .gt('fecha_nacimiento', getBirthDateLimit(46))
-                    .lte('fecha_nacimiento', getBirthDateLimit(35));
+            if (catError || !cat) {
+                return {
+                    statusCode: 404,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: 'Categoría no encontrada' }),
+                };
             }
-            // 'todos' o undefined: solo filtro de activo=true (ya aplicado)
+            categoriaData = cat;
         }
 
-        // Ejecutar query de conteo
+        const busquedaTrim = busqueda?.trim();
+
+        const applyFiltros = (q) => {
+            if (categoria === 'eliminados') {
+                q = q.eq('activo', false);
+            } else {
+                q = q.eq('activo', true);
+                if (categoriaData) {
+                    const { edad_desde, edad_hasta } = categoriaData;
+                    if (edad_desde != null) {
+                        q = q.lte('fecha_nacimiento', getBirthDateLimit(edad_desde));
+                    }
+                    if (edad_hasta != null) {
+                        q = q.gte('fecha_nacimiento', getBirthDateLimit(edad_hasta));
+                    }
+                }
+            }
+            if (busquedaTrim) {
+                q = q.or(`nombre_completo.ilike.%${busquedaTrim}%,rut.ilike.%${busquedaTrim}%`);
+            }
+            return q;
+        };
+
+        // Query de conteo
+        let query = supabase
+            .from('el_dep_jugadores')
+            .select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId);
+        query = applyFiltros(query);
+
         const { count, error: countError } = await query;
 
         if (countError) throw countError;
 
-        // Datos con JOIN (reconstruir query porque .select de count es diferente)
+        // Query de datos con JOIN
         let dataQuery = supabase
             .from('el_dep_jugadores')
             .select(`
@@ -182,29 +203,11 @@ export const listar = async (event) => {
                 )
             `)
             .eq('club_id', clubId);
-
-        // Re-aplicar filtros a la query de datos
-        if (categoria === 'eliminados') {
-            dataQuery = dataQuery.eq('activo', false);
-        } else {
-            dataQuery = dataQuery.eq('activo', true);
-
-            if (categoria === 'dorados') {
-                dataQuery = dataQuery.lte('fecha_nacimiento', getBirthDateLimit(55));
-            } else if (categoria === 'super') {
-                dataQuery = dataQuery
-                    .gt('fecha_nacimiento', getBirthDateLimit(55))
-                    .lte('fecha_nacimiento', getBirthDateLimit(46));
-            } else if (categoria === 'senior') {
-                dataQuery = dataQuery
-                    .gt('fecha_nacimiento', getBirthDateLimit(46))
-                    .lte('fecha_nacimiento', getBirthDateLimit(35));
-            }
-        }
+        dataQuery = applyFiltros(dataQuery);
             
         const { data, error } = await dataQuery
             .range(offset, offset + limit - 1)
-            .order('created_at', { ascending: false });
+            .order('folio', { ascending: true });
 
         if (error) throw error;
 
@@ -354,6 +357,51 @@ export const actualizar = async (event) => {
         return {
             statusCode: 200,
             body: JSON.stringify(data),
+        };
+    } catch (error) {
+        return {
+            statusCode: error.message === 'Invalid token' || error.message === 'No token provided' ? 401 : 500,
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
+
+export const eliminar = async (event) => {
+    try {
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) return apiKeyValidation.response;
+
+        const userId = getUserIdFromToken(event);
+        const { clubId, id } = event.pathParameters;
+
+        const isOwner = await verifyClubOwnership(clubId, userId);
+        if (!isOwner) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ message: 'No tienes permisos para administrar este club' }),
+            };
+        }
+
+        // Desactivar jugador y liberar su folio para reasignación automática
+        const { data, error } = await supabase
+            .from('el_dep_jugadores')
+            .update({ activo: false, folio: null, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('club_id', clubId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        if (!data) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ message: 'Jugador no encontrado' }),
+            };
+        }
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Jugador eliminado y folio liberado', id }),
         };
     } catch (error) {
         return {

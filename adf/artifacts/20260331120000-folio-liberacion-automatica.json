@@ -1,0 +1,85 @@
+{
+  "artifact_id": "20260331120000-folio-liberacion-automatica",
+  "task": {
+    "description": "Cuando un jugador es eliminado, su folio queda liberado (folio=null) y disponible para reasignación automática al próximo jugador registrado",
+    "complexity": "medium",
+    "layers_affected": ["backend", "frontend"]
+  },
+  "execution": {
+    "skills_used": ["adf:orchestrate", "specialists:backend", "specialists:frontend", "validators:code", "validators:api"],
+    "phases": [
+      {
+        "phase": "Análisis",
+        "actions": ["Lectura de jugadores.js, handler.js, Players.vue para entender estado actual"]
+      },
+      {
+        "phase": "Backend — jugadores.js",
+        "actions": [
+          "crear(): reemplazó MAX(folio)+1 por algoritmo gap-finding (mínimo folio no usado entre activos)",
+          "eliminar(): nuevo handler DELETE → activo=false, folio=null, updated_at"
+        ]
+      },
+      {
+        "phase": "Backend — handler.js",
+        "actions": [
+          "Import eliminarJugador desde jugadores.js",
+          "Ruta DELETE /clubes/{clubId}/jugadores/{id} registrada"
+        ]
+      },
+      {
+        "phase": "Frontend — Players.vue",
+        "actions": [
+          "Tabla desktop: columna 'Detalle' → 'Acciones' con botones editar + ver + 🗑️",
+          "Mobile cards: botón 🗑️ añadido",
+          "Botón eliminar oculto en tab 'eliminados' (v-if)",
+          "Folio en formulario: campo deshabilitado 'Se asigna automáticamente' en crear; editable en editar",
+          "Validación folio: solo aplica si isEditing y valor fue ingresado",
+          "deletePlayer(): resetea paginación tras eliminación",
+          "CSS: .btn-icon.btn-danger:hover con fondo rojo suave"
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "decision": "folio=null en eliminación (no mantener folio histórico)",
+      "reasoning": "El usuario solicitó explícitamente que el folio quede 'disponible' al eliminar — mantenerlo bloquearía la reasignación. El tab 'eliminados' mostrará '-' para folio.",
+      "alternatives_discarded": ["Mantener folio para historial + tabla separada de folios libres — complejidad innecesaria"]
+    },
+    {
+      "decision": "Algoritmo gap-finding: menor folio no usado entre jugadores activos",
+      "reasoning": "Garantiza que siempre se reutilice el folio liberado de menor número. Ejemplo: si existían folios 1,2,3 y se elimina el 2, el próximo jugador obtiene folio 2, no 4.",
+      "alternatives_discarded": ["MAX+1 (anterior) — no reutilizaba folios liberados"]
+    },
+    {
+      "decision": "Folio auto-asignado en creación, no solicitado al usuario",
+      "reasoning": "El folio es un número de sistema, no un dato que el usuario conoce. El formulario ahora muestra 'Se asigna automáticamente' en modo crear.",
+      "alternatives_discarded": ["Mantener campo editable en crear — generaba inconsistencias si el usuario ingresaba un folio ya en uso"]
+    },
+    {
+      "decision": "Botón eliminar oculto en tab 'eliminados'",
+      "reasoning": "No tiene sentido eliminar a alguien que ya está eliminado (activo=false).",
+      "alternatives_discarded": []
+    }
+  ],
+  "result": {
+    "status": "success",
+    "files_modified": [
+      "routes/jugadores/jugadores.js",
+      "handler.js",
+      "frontend-miclub/src/views/Players.vue"
+    ],
+    "new_endpoints": [
+      "DELETE /clubes/{clubId}/jugadores/{id}"
+    ]
+  },
+  "validation_summary": {
+    "code": { "passed": true, "notes": "ES Modules, handler pattern, sin console.log" },
+    "security": { "passed": true, "notes": "API Key + JWT + verifyClubOwnership en eliminar; multitenancy via club_id" },
+    "api": { "passed": true, "notes": "REST correcto, DELETE retorna 200 con mensaje, 404 si no existe, 403 si no es dueño" }
+  },
+  "next_steps": [
+    "Verificar en producción que el DELETE /clubes/{clubId}/jugadores/{id} responde correctamente",
+    "Confirmar que el gap-finding funciona: eliminar folio 3 de una secuencia 1-5, crear nuevo → debe obtener folio 3"
+  ]
+}

@@ -140,25 +140,42 @@ export const listar = async (event) => {
 
         const userId = getUserIdFromToken(event);
 
-        const { data, error } = await supabase
+        // Obtener clubs donde el usuario fue invitado (no es dueño)
+        const { data: accesos } = await supabase
+            .from('el_dep_club_usuarios')
+            .select('club_id')
+            .eq('usuario_id', userId);
+
+        const invitadoIds = (accesos || []).map(r => r.club_id);
+
+        // Construir filtro: clubs propios OR clubs donde fue invitado
+        let query = supabase
             .from('el_dep_clubes')
             .select('*, el_dep_jugadores(count), el_dep_categorias(*)')
-            .eq('admin_id', userId)
             .eq('el_dep_jugadores.activo', true)
             .order('edad_desde', { foreignTable: 'el_dep_categorias', ascending: true });
+
+        if (invitadoIds.length > 0) {
+            query = query.or(`admin_id.eq.${userId},id.in.(${invitadoIds.join(',')})`);
+        } else {
+            query = query.eq('admin_id', userId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
         const clubs = data.map(club => {
-            const count = club.el_dep_jugadores && club.el_dep_jugadores.length > 0 
-                ? club.el_dep_jugadores[0].count 
+            const count = club.el_dep_jugadores && club.el_dep_jugadores.length > 0
+                ? club.el_dep_jugadores[0].count
                 : 0;
-            
+
             const { el_dep_jugadores, el_dep_categorias, ...clubData } = club;
             return {
                 ...clubData,
                 cantidad_jugadores: count,
-                categorias: el_dep_categorias || []
+                categorias: el_dep_categorias || [],
+                es_propietario: club.admin_id === userId,
             };
         });
 

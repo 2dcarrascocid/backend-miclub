@@ -41,6 +41,7 @@ import {
   listar         as listarJugadores,
   buscarJugadores,
   actualizar     as actualizarJugador,
+  eliminar       as eliminarJugador,
 } from './routes/jugadores/jugadores.js'
 
 import {
@@ -80,6 +81,15 @@ import {
   registrarPago  as registrarPagoEvento,
   cerrar         as cerrarEvento,
 } from './routes/eventos/eventos.js'
+
+// ─── Invitaciones ─────────────────────────────────────────────────────────────
+import {
+  crear   as crearInvitacion,
+  listar  as listarInvitaciones,
+  revocar as revocarInvitacion,
+  verificar as verificarInvitacion,
+  aceptar as aceptarInvitacion,
+} from './routes/invitaciones/invitaciones.js'
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 import { sendNotification } from './routes/notifications/notificationHandler.js'
@@ -136,7 +146,8 @@ export const handler = createRouter([
   { method: 'POST', path: '/clubes/{clubId}/jugadores/carga-masiva', handler: procesarCargaMasiva },
   { method: 'POST', path: '/clubes/{clubId}/jugadores',              handler: crearJugador        },
   { method: 'GET',  path: '/clubes/{clubId}/jugadores',              handler: listarJugadores     },
-  { method: 'PUT',  path: '/clubes/{clubId}/jugadores/{id}',         handler: actualizarJugador   },
+  { method: 'PUT',    path: '/clubes/{clubId}/jugadores/{id}',       handler: actualizarJugador   },
+  { method: 'DELETE', path: '/clubes/{clubId}/jugadores/{id}',       handler: eliminarJugador     },
 
   // ── Finanzas — /lote antes de /movimientos para evitar conflicto ──────────
   { method: 'POST', path: '/clubes/{clubId}/finanzas/movimientos/lote', handler: ingresarMovimientosPorLote },
@@ -163,6 +174,13 @@ export const handler = createRouter([
   { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/jugadores',                    handler: agregarJugador      },
   { method: 'DELETE', path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}',        handler: quitarJugador       },
   { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}/pagar',  handler: registrarPagoEvento },
+
+  // ── Invitaciones — literales (/aceptar) antes de paramétricos ────────────
+  { method: 'GET',    path: '/invitaciones/{token}/verificar', handler: verificarInvitacion },
+  { method: 'POST',   path: '/invitaciones/{token}/aceptar',   handler: aceptarInvitacion   },
+  { method: 'POST',   path: '/clubes/{clubId}/invitaciones',   handler: crearInvitacion     },
+  { method: 'GET',    path: '/clubes/{clubId}/invitaciones',   handler: listarInvitaciones  },
+  { method: 'DELETE', path: '/clubes/{clubId}/invitaciones/{id}', handler: revocarInvitacion },
 
   // ── Notifications ─────────────────────────────────────────────────────────
   { method: 'POST', path: '/notifications/send', handler: sendNotification },
