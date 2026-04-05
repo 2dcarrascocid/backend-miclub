@@ -1,6 +1,7 @@
 import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
+import { verifyClubAccess } from '../../utils/clubAccess.js';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
 
@@ -17,17 +18,6 @@ const getUserIdFromToken = (event) => {
     }
 };
 
-const verifyClubOwnership = async (clubId, userId) => {
-    const { data, error } = await supabase
-        .from('el_dep_clubes')
-        .select('id')
-        .eq('id', clubId)
-        .eq('admin_id', userId)
-        .single();
-
-    if (error || !data) return false;
-    return true;
-};
 
 export const obtenerResumen = async (event) => {
     try {
@@ -40,7 +30,7 @@ export const obtenerResumen = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
 
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) {
             return {
                 statusCode: 403,

@@ -176,6 +176,14 @@ export const revocar = async (event) => {
             };
         }
 
+        // Obtener usuario_id antes de eliminar para revocar acceso
+        const { data: inv } = await supabase
+            .from('el_dep_invitaciones')
+            .select('usuario_id')
+            .eq('id', id)
+            .eq('club_id', clubId)
+            .single();
+
         const { error } = await supabase
             .from('el_dep_invitaciones')
             .delete()
@@ -183,6 +191,15 @@ export const revocar = async (event) => {
             .eq('club_id', clubId);
 
         if (error) throw error;
+
+        // Si el invitado ya había aceptado, revocar su acceso al club
+        if (inv?.usuario_id) {
+            await supabase
+                .from('el_dep_club_usuarios')
+                .delete()
+                .eq('club_id', clubId)
+                .eq('usuario_id', inv.usuario_id);
+        }
 
         return {
             statusCode: 200,

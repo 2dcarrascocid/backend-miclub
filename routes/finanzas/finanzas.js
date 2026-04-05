@@ -2,6 +2,7 @@ import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
 import { encodeNext, decodeNext } from '../../utils/pagination.js';
+import { verifyClubAccess } from '../../utils/clubAccess.js';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
 
@@ -16,32 +17,6 @@ const getUserIdFromToken = (event) => {
     } catch (err) {
         throw new Error('Invalid token');
     }
-};
-
-const verifyClubAdmin = async (clubId, userId) => {
-    const { data, error } = await supabase
-        .from('el_dep_clubes')
-        .select('id')
-        .eq('id', clubId)
-        .eq('admin_id', userId)
-        .single();
-
-    return !error && !!data;
-};
-
-const verifyClubAccess = async (clubId, userId) => {
-    // Check if admin
-    if (await verifyClubAdmin(clubId, userId)) return true;
-
-    // Check if player in club linked to user
-    const { data, error } = await supabase
-        .from('el_dep_jugadores')
-        .select('id')
-        .eq('club_id', clubId)
-        .eq('usuario_id', userId)
-        .single();
-
-    return !error && !!data;
 };
 
 export const crearMovimiento = async (event) => {
@@ -64,7 +39,7 @@ export const crearMovimiento = async (event) => {
             };
         }
 
-        if (!await verifyClubAdmin(clubId, userId)) {
+        if (!await verifyClubAccess(clubId, userId)) {
             return {
                 statusCode: 403,
                 body: JSON.stringify({ message: 'Solo el administrador puede crear movimientos' }),
@@ -240,7 +215,7 @@ export const cerrarMes = async (event) => {
             };
         }
 
-        if (!await verifyClubAdmin(clubId, userId)) {
+        if (!await verifyClubAccess(clubId, userId)) {
             return {
                 statusCode: 403,
                 body: JSON.stringify({ message: 'Solo el administrador puede cerrar el mes' }),
@@ -329,7 +304,7 @@ export const ingresarMovimientosPorLote = async (event) => {
             };
         }
 
-        if (!await verifyClubAdmin(clubId, userId)) {
+        if (!await verifyClubAccess(clubId, userId)) {
             return {
                 statusCode: 403,
                 body: JSON.stringify({ message: 'Solo el administrador puede ingresar movimientos por lote' }),

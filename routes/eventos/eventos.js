@@ -1,6 +1,7 @@
 import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
+import { verifyClubAccess } from '../../utils/clubAccess.js';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
 
@@ -17,17 +18,6 @@ const getUserIdFromToken = (event) => {
     }
 };
 
-const verifyClubOwnership = async (clubId, userId) => {
-    const { data, error } = await supabase
-        .from('el_dep_clubes')
-        .select('id')
-        .eq('id', clubId)
-        .eq('admin_id', userId)
-        .single();
-
-    if (error || !data) return false;
-    return true;
-};
 
 // --- HANDLERS ---
 
@@ -39,7 +29,7 @@ export const crear = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId } = event.pathParameters;
         
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         const body = JSON.parse(event.body);
@@ -77,7 +67,7 @@ export const actualizar = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId, id } = event.pathParameters;
         
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         const body = JSON.parse(event.body);
@@ -122,7 +112,7 @@ export const listar = async (event) => {
         const { clubId } = event.pathParameters;
         const { estado, desde, hasta } = event.queryStringParameters || {};
 
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         let query = supabase
@@ -152,7 +142,7 @@ export const obtener = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId, id } = event.pathParameters;
 
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         // Obtener evento
@@ -231,7 +221,7 @@ export const agregarJugador = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId, id } = event.pathParameters;
         
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         const body = JSON.parse(event.body);
@@ -277,7 +267,7 @@ export const quitarJugador = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId, id, jugadorId } = event.pathParameters;
 
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         // Verificar estado evento
@@ -315,7 +305,7 @@ export const registrarPago = async (event) => {
         const body = JSON.parse(event.body);
         const { fecha_pago } = body; // e.g., "2025-12-19T18:30:00Z"
 
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         // Obtener datos del registro jugador-evento
@@ -387,7 +377,7 @@ export const cerrar = async (event) => {
         const userId = getUserIdFromToken(event);
         const { clubId, id } = event.pathParameters;
 
-        const isOwner = await verifyClubOwnership(clubId, userId);
+        const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
         // Verificar evento
