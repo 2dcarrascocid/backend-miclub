@@ -2,6 +2,8 @@ import { supabase } from '../../services/db.js';
 import jwt from 'jsonwebtoken';
 import { validateApiKey } from '../../utils/apiKeyMiddleware.js';
 import { sendEmail } from '../notifications/emailService.js';
+import * as crud from '../login/crud_login.js';
+import * as funciones from '../login/funciones.js';
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'access-secret';
 
@@ -243,6 +245,9 @@ export const verificar = async (event) => {
             };
         }
 
+        // Verificar si el email ya tiene cuenta en el sistema
+        const usuarioExistente = await crud.findUserByEmail(inv.email);
+
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -250,11 +255,142 @@ export const verificar = async (event) => {
                 email: inv.email,
                 club: inv.el_dep_clubes,
                 expires_at: inv.expires_at,
+                usuario_existe: !!usuarioExistente,
             }),
         };
     } catch (error) {
         return {
             statusCode: 500,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
+
+// POST /invitaciones/{token}/registrar  — sin auth previa, crea cuenta + acepta invitación
+export const registrar = async (event) => {
+    try {
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) return apiKeyValidation.response;
+
+        const { token } = event.pathParameters;
+        const { nombre, apellido = '', password } = JSON.parse(event.body || '{}');
+
+        if (!nombre || !password || password.length < 8) {
+            return {
+                statusCode: 400,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'nombre y password (mínimo 8 caracteres) son obligatorios' }),
+            };
+        }
+
+        // 1. Verificar que la invitación es válida
+        const { data: inv, error: invError } = await supabase
+            .from('el_dep_invitaciones')
+            .select('*')
+            .eq('token', token)
+            .single();
+
+        if (invError || !inv) {
+            return {
+                statusCode: 404,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Invitación no encontrada' }),
+            };
+        }
+
+        if (inv.estado !== 'pendiente' || new Date(inv.expires_at) < new Date()) {
+            return {
+                statusCode: 410,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'La invitación ya no está disponible' }),
+            };
+        }
+
+        // 2. Verificar que el email no tiene cuenta (debe usar /aceptar si ya tiene)
+        const existente = await crud.findUserByEmail(inv.email);
+        if (existente) {
+            return {
+                statusCode: 409,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: 'Este email ya tiene una cuenta. Inicia sesión y acepta la invitación.',
+                    usuario_existe: true,
+                }),
+            };
+        }
+
+        // 3. Crear usuario — el email queda verificado inmediatamente porque
+        //    el invitado llegó aquí desde el link enviado a ese email.
+        const user = await crud.registerLocalUser({
+            email: inv.email,
+            password,
+            metadata: { nombre, apellido },
+            verification_token: null,
+            verification_token_expires_at: null,
+        });
+
+        await supabase
+            .from('el_dep_identidades')
+            .update({ email_verified: true, verification_token: null, verification_token_expires_at: null })
+            .eq('id', user.id);
+
+        // 4. Vincular usuario al club
+        const { error: clubError } = await supabase
+            .from('el_dep_club_usuarios')
+            .upsert([{ club_id: inv.club_id, usuario_id: user.id, rol: 'admin' }], {
+                onConflict: 'club_id,usuario_id',
+            });
+
+        if (clubError) throw clubError;
+
+        // 5. Marcar invitación como aceptada
+        await supabase
+            .from('el_dep_invitaciones')
+            .update({ estado: 'aceptada', usuario_id: user.id, accepted_at: new Date().toISOString() })
+            .eq('id', inv.id);
+
+        // 6. Crear sesión y devolver tokens (auto-login)
+        const accessToken = funciones.generateAccessToken(user.id);
+        const refreshToken = funciones.generateRefreshToken();
+        const refreshTokenHash = funciones.hashRefreshToken(refreshToken);
+        const sessionMeta = funciones.buildSessionMetadata(event);
+
+        const session = await crud.createSession({
+            usuario_id: user.id,
+            refresh_token_hash: refreshTokenHash,
+            user_agent: sessionMeta.userAgent,
+            ip_address: sessionMeta.ip,
+            dispositivo: sessionMeta.device,
+            valido: true,
+            created_at: new Date().toISOString(),
+            expire_at: funciones.refreshTokenExpireAt(),
+        });
+
+        const clubes = await crud.getUserClubs(user.id);
+
+        const response = funciones.buildAuthResponse({
+            user: { ...user, email_verified: true },
+            roles: [],
+            plan: null,
+            permisos: [],
+            clubes,
+            accessToken,
+            refreshToken,
+            sessionId: session.id,
+        });
+
+        return {
+            statusCode: 201,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(response),
+        };
+
+    } catch (error) {
+        console.error('[invitaciones.registrar]', error.message);
+        const status = error.message === 'Email ya registrado' ? 409 : 500;
+        return {
+            statusCode: status,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: error.message }),
         };

@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la \"c:\\\\Users\\\\Delta\\\\Documents\\\\PROYECTOS\\\\2025\\\\FPLAYCHILE\\\\frontend-miclub\\\\src\\\\components\"\" 2>/dev/null || echo \"Directory not found \")"
+      "Bash(ls -la \"c:\\\\Users\\\\Delta\\\\Documents\\\\PROYECTOS\\\\2025\\\\FPLAYCHILE\\\\frontend-miclub\\\\src\\\\components\"\" 2>/dev/null || echo \"Directory not found \")",
+      "Bash(npm run *)",
+      "Bash(nvm list *)",
+      "Bash(curl -s http://localhost:3000/auth/login -X POST -H \"Content-Type: application/json\" -H \"x-api-key: test\" -d '{}')",
+      "Bash(curl -s http://localhost:3001/)",
+      "Bash(xargs kill -9)"
     ]
   }
 }

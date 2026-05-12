@@ -84,11 +84,12 @@ import {
 
 // ─── Invitaciones ─────────────────────────────────────────────────────────────
 import {
-  crear   as crearInvitacion,
-  listar  as listarInvitaciones,
-  revocar as revocarInvitacion,
+  crear     as crearInvitacion,
+  listar    as listarInvitaciones,
+  revocar   as revocarInvitacion,
   verificar as verificarInvitacion,
-  aceptar as aceptarInvitacion,
+  aceptar   as aceptarInvitacion,
+  registrar as registrarInvitacion,
 } from './routes/invitaciones/invitaciones.js'
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -176,8 +177,9 @@ export const handler = createRouter([
   { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}/pagar',  handler: registrarPagoEvento },
 
   // ── Invitaciones — literales (/aceptar) antes de paramétricos ────────────
-  { method: 'GET',    path: '/invitaciones/{token}/verificar', handler: verificarInvitacion },
-  { method: 'POST',   path: '/invitaciones/{token}/aceptar',   handler: aceptarInvitacion   },
+  { method: 'GET',    path: '/invitaciones/{token}/verificar',  handler: verificarInvitacion  },
+  { method: 'POST',   path: '/invitaciones/{token}/registrar', handler: registrarInvitacion  },
+  { method: 'POST',   path: '/invitaciones/{token}/aceptar',   handler: aceptarInvitacion    },
   { method: 'POST',   path: '/clubes/{clubId}/invitaciones',   handler: crearInvitacion     },
   { method: 'GET',    path: '/clubes/{clubId}/invitaciones',   handler: listarInvitaciones  },
   { method: 'DELETE', path: '/clubes/{clubId}/invitaciones/{id}', handler: revocarInvitacion },

@@ -119,10 +119,7 @@ export const commit = async (event) => {
         // 1. Confirmar con Transbank (Commit)
         console.log(`[Webpay Commit] Iniciando commit para token: ${token}`);
         const commitResponse = await WebpayService.commit(token);
-<<<<<<< HEAD
         console.log("[Webpay Commit] Respuesta RAW Transbank:", JSON.stringify(commitResponse, null, 2));
-=======
->>>>>>> 7575491 (correccion ranma)
 
         // 2. Verificar respuesta
         // response_code === 0 significa Aprobado
