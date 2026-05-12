@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "Bash(npm run deploy)",
+      "Bash(npm run deploy:all)",
+      "Bash(npm run generate:swagger)",
+      "Bash(npm run sync:swagger)",
+      "Bash(node scripts/*.js)",
+      "Bash(grep *)",
+      "Bash(find . *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)"
+    ]
+  }
+}

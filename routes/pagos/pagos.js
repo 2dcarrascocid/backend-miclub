@@ -76,24 +76,32 @@ export const commit = async (event) => {
     try {
         let token;
         
+        // CASO 0: El evento ES el payload (Serverless Offline directo o configuración específica)
+        if (event.token_ws) {
+            token = event.token_ws;
+        }
         // 1. Intentar obtener token de Query String (GET o POST con params en URL)
-        // Webpay Plus Redirect: A veces llega por GET, a veces POST.
-        if (event.queryStringParameters && event.queryStringParameters.token_ws) {
+        else if (event.queryStringParameters && event.queryStringParameters.token_ws) {
             token = event.queryStringParameters.token_ws;
         } 
         // 2. Si es cancelación por usuario (TBK_TOKEN)
         else if (event.queryStringParameters && event.queryStringParameters.TBK_TOKEN) {
              return await handleAbortedPayment(event.queryStringParameters.TBK_TOKEN, 'ABORTED_BY_USER');
         }
-        // 3. Si viene por Body (POST form-urlencoded)
-        else if (event.httpMethod === 'POST' && event.body) {
-             const contentType = event.headers['content-type'] || event.headers['Content-Type'] || '';
-             
-             if (contentType.includes('application/json')) {
-                 const body = JSON.parse(event.body);
-                 token = body.token_ws;
-             } else {
-                 // x-www-form-urlencoded
+        // 3. Si viene por Body (Intentar parsear siempre si hay body, sin importar method)
+        else if (event.body) {
+             // Intentamos parsear JSON primero
+             try {
+                 // Si body ya es objeto (pasa a veces)
+                 if (typeof event.body === 'object') {
+                     if (event.body.token_ws) token = event.body.token_ws;
+                 } else {
+                     // Si es string
+                     const bodyObj = JSON.parse(event.body);
+                     if (bodyObj.token_ws) token = bodyObj.token_ws;
+                 }
+             } catch (e) {
+                 // No es JSON, intentamos x-www-form-urlencoded
                  const params = new URLSearchParams(event.body);
                  token = params.get('token_ws');
                  
@@ -108,12 +116,13 @@ export const commit = async (event) => {
             return redirectFrontend(false, 'no-token');
         }
 
-        console.log(`[Webpay Commit] Procesando token: ${token}`);
-
         // 1. Confirmar con Transbank (Commit)
         console.log(`[Webpay Commit] Iniciando commit para token: ${token}`);
         const commitResponse = await WebpayService.commit(token);
+<<<<<<< HEAD
         console.log("[Webpay Commit] Respuesta RAW Transbank:", JSON.stringify(commitResponse, null, 2));
+=======
+>>>>>>> 7575491 (correccion ranma)
 
         // 2. Verificar respuesta
         // response_code === 0 significa Aprobado
@@ -129,20 +138,19 @@ export const commit = async (event) => {
             // TODO: Activar suscripción si es necesario
             // await activateSubscription(token, commitResponse);
 
-            return redirectFrontend(true, token);
+            // Retornar JSON directo con los datos de la transacción
+            return response(200, commitResponse);
         } else {
             // RECHAZADO
             await crud.updatePaymentStatus(token, 'REJECTED', commitResponse);
-            return redirectFrontend(false, token);
+            return response(400, { message: 'Transacción rechazada', details: commitResponse });
         }
 
     } catch (error) {
         console.error("Commit Error:", error);
         
         // Si el token ya fue confirmado, Webpay lanza error. 
-        // Intentamos redirigir a éxito si ya está pagado en nuestra DB.
-        // O a error si falló algo más.
-        return redirectFrontend(false, 'error_process');
+        return errorResponse(error);
     }
 };
 

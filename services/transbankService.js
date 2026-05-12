@@ -12,7 +12,7 @@ const isIntegration = host.includes('webpay3gint') ||
 
 const environment = isIntegration ? Environment.Integration : Environment.Production;
 
-console.log(`[Webpay] Initialized with CommerceCode: ${commerceCode}, Env: ${isIntegration ? 'Integration' : 'Production'}`);
+  // console.log(`[Webpay] Initialized with CommerceCode: ${commerceCode}, Env: ${isIntegration ? 'Integration' : 'Production'}`);
 
 const tx = new WebpayPlus.Transaction(new Options(commerceCode, apiKey, environment));
 

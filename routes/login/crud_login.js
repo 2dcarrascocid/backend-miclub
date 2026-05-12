@@ -168,9 +168,68 @@ export async function getUserRoles(userId) {
 }
 
 export async function getUserPermissions(userId) {
+<<<<<<< HEAD
   // Acceso total — un solo tipo de usuario con acceso a todos los módulos.
   // Retorna array vacío; el router de frontend no restringe por permisos.
   return [];
+=======
+  // 1. Obtener roles del usuario
+  const { data: userRoles, error: userRolesError } = await supabase
+    .from("el_dep_usuario_roles")
+    .select("*")
+    .eq("usuario_id", userId);
+
+  if (userRolesError) throw new Error("Error obteniendo roles: " + userRolesError.message);
+  if (!userRoles || userRoles.length === 0) return [];
+
+  const roleIds = userRoles.map((r) => r.rol_id);
+
+  // 2. Obtener detalles de roles
+  const { data: roles, error: rolesError } = await supabase
+    .from("el_dep_roles")
+    .select("*")
+    .in("id", roleIds);
+
+  if (rolesError) throw new Error("Error obteniendo detalles de roles: " + rolesError.message);
+
+  // 3. Obtener planes asociados (asumiendo que el rol tiene plan_id)
+  const planIds = roles
+    .map((r) => r.id_plan)
+    .filter((id) => id); // Filtrar nulos
+
+  if (planIds.length === 0) return [];
+
+  // 4. Obtener detalles de planes (opcional, pero solicitado en el flujo)
+  const { error: planesError } = await supabase
+    .from("el_dep_planes")
+    .select("*")
+    .in("id", planIds);
+
+  if (planesError) throw new Error("Error obteniendo planes: " + planesError.message);
+
+  // 5. Obtener menú y permisos
+  const { data: menuItems, error: menuError } = await supabase
+    .from("el_dep_plan_menu")
+    .select(`
+      puede_editar,
+      menu:el_dep_menu (
+        nombre,
+        ruta,
+        icono
+      )
+    `)
+    .in("plan_id", planIds);
+
+  if (menuError) throw new Error("Error obteniendo permisos de menú: " + menuError.message);
+
+  // Mapear respuesta
+  return menuItems.map((item) => ({
+    nombre: item.menu?.nombre,
+    ruta: item.menu?.ruta,
+    icono: item.menu?.icono,
+    puede_editar: item.puede_editar,
+  }));
+>>>>>>> 7575491 (correccion ranma)
 }
 
 export async function getUserPlan(userId) {

@@ -17,11 +17,11 @@ export const sendEmail = async ({ to, subject, html, text }) => {
   try {
     // If mocking is enabled or credentials are missing, just log
     if (process.env.MOCK_EMAIL === 'true' || !process.env.SMTP_HOST) {
-      console.log(`[EmailService] MOCK SEND:
-        To: ${to}
-        Subject: ${subject}
-        Content: ${text || html}
-      `);
+        // console.log(`[EmailService] MOCK SEND:
+        //   To: ${to}
+        //   Subject: ${subject}
+        //   Content: ${text || html}
+        // `);
       return { success: true, messageId: 'mock-id-' + Date.now() };
     }
 
@@ -35,7 +35,7 @@ export const sendEmail = async ({ to, subject, html, text }) => {
     // console.log("Message sent: %s", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending email: ", error);
+    // console.error("Error sending email: ", error);
     return { success: false, error: error.message };
   }
 };
