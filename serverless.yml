@@ -5,7 +5,7 @@ provider:
   name: aws
   runtime: nodejs22.x          # alineado con engines.node >=22 en package.json
   region: us-east-1
-  stage: dev
+  stage: ${opt:stage, 'dev'}
   memorySize: 512              # reducido de default 1024 MB
   timeout: 29                  # máximo para HTTP API Gateway
   environment:
@@ -19,7 +19,7 @@ provider:
     SMTP_PASS: ${env:SMTP_PASS}
     SMTP_SECURE: ${env:SMTP_SECURE}
     SMTP_FROM: ${env:SMTP_FROM}
-    FRONTEND_URL: ${env:FRONTEND_URL}
+    FRONTEND_URL: ${self:custom.frontendUrl.${self:provider.stage}, env:FRONTEND_URL}
     MOCK_EMAIL: ${env:MOCK_EMAIL}
     WEBPAY_HOST: ${env:WEBPAY_HOST}
     WEBPAY_API_KEY: ${env:WEBPAY_API_KEY}
@@ -76,6 +76,9 @@ build:
       js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
 
 custom:
+  frontendUrl:
+    dev: http://localhost:5173
+    prod: https://miclub.fairplay-chile.cl/
   serverless-offline:
     disableCookieValidation: true
     noPrependStage: true

@@ -8,8 +8,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "serverless offline --stage dev",
-    "deploy": "serverless deploy",
-    "remove": "serverless remove",
+    "deploy": "serverless deploy --stage prod",
+    "remove": "serverless remove --stage prod",
     "generate:swagger": "node scripts/generate-swagger.js",
     "sync:swagger": "node scripts/sync-swagger.js",
     "deploy:all": "serverless deploy && npm run sync:swagger"
