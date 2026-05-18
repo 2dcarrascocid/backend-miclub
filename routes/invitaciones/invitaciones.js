@@ -89,6 +89,7 @@ export const crear = async (event) => {
 
         if (error) throw error;
 
+        console.log("process.env.FRONTEND_URL", `${process.env.FRONTEND_URL}` )
         const link = `${process.env.FRONTEND_URL}/invitacion/${inv.token}`;
 
         await sendEmail({
