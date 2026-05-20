@@ -78,7 +78,7 @@ build:
 custom:
   frontendUrl:
     dev: http://localhost:5173
-    prod: https://miclub.fairplay-chile.cl/
+    prod: https://miclub.fairplay-chile.cl
   serverless-offline:
     disableCookieValidation: true
     noPrependStage: true
