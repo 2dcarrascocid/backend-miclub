@@ -59,11 +59,21 @@ export const obtenerResumen = async (event) => {
 
         if (errorSocios) throw errorSocios;
 
+        // 3. Contar Eventos Abiertos
+        const { count: totalEventosAbiertos, error: errorEventos } = await supabase
+            .from('el_dep_club_eventos')
+            .select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId)
+            .eq('estado', 'abierto');
+
+        if (errorEventos) throw errorEventos;
+
         return {
             statusCode: 200,
             body: JSON.stringify({
                 total_jugadores_activos: totalJugadores,
-                total_socios_no_jugadores: totalSocios
+                total_socios_no_jugadores: totalSocios,
+                total_eventos_abiertos: totalEventosAbiertos ?? 0
             }),
         };
     } catch (error) {

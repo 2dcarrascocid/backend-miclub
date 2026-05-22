@@ -79,6 +79,7 @@ import {
   agregarJugador,
   quitarJugador,
   registrarPago  as registrarPagoEvento,
+  ajustarPago    as ajustarPagoEvento,
   cerrar         as cerrarEvento,
 } from './routes/eventos/eventos.js'
 
@@ -173,8 +174,9 @@ export const handler = createRouter([
   { method: 'PUT',    path: '/clubes/{clubId}/eventos/{id}',                              handler: actualizarEvento    },
   { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/cerrar',                       handler: cerrarEvento        },
   { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/jugadores',                    handler: agregarJugador      },
-  { method: 'DELETE', path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}',        handler: quitarJugador       },
-  { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}/pagar',  handler: registrarPagoEvento },
+  { method: 'DELETE', path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}',          handler: quitarJugador       },
+  { method: 'POST',   path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}/pagar',   handler: registrarPagoEvento },
+  { method: 'PUT',    path: '/clubes/{clubId}/eventos/{id}/jugadores/{jugadorId}/ajuste',  handler: ajustarPagoEvento   },
 
   // ── Invitaciones — literales (/aceptar) antes de paramétricos ────────────
   { method: 'GET',    path: '/invitaciones/{token}/verificar',  handler: verificarInvitacion  },

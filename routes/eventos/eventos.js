@@ -45,7 +45,8 @@ export const crear = async (event) => {
                 fecha_evento,
                 fecha_limite_pago,
                 costo_unitario,
-                estado: 'borrador'
+                estado: 'borrador',
+                creado_por: userId
             }])
             .select()
             .single();
@@ -85,11 +86,10 @@ export const actualizar = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ message: 'No se puede editar un evento cerrado' }) };
         }
 
-        const { jugadores, ...bodySinJugadores } = body;
-        // Permitir actualizar campos
+        const { jugadores, resumen, creador, creado_por, club_id, id: _id, created_at, updated_at, ...bodyActualizable } = body;
         const { data, error } = await supabase
             .from('el_dep_club_eventos')
-            .update(bodySinJugadores)
+            .update(bodyActualizable)
             .eq('id', id)
             .select()
             .single();
@@ -104,6 +104,7 @@ export const actualizar = async (event) => {
 };
 
 export const listar = async (event) => {
+    console.log("listar::.")
     try {
         const apiKeyValidation = validateApiKey(event);
         if (!apiKeyValidation.valid) return apiKeyValidation.response;
@@ -128,7 +129,27 @@ export const listar = async (event) => {
         const { data, error } = await query;
         if (error) throw error;
 
-        return { statusCode: 200, body: JSON.stringify(data) };
+        const eventIds = (data || []).map(e => e.id);
+        let countMap = {};
+
+        if (eventIds.length > 0) {
+            const { data: jugadores } = await supabase
+                .from('el_dep_club_evento_jugadores')
+                .select('evento_id')
+                .in('evento_id', eventIds);
+
+            (jugadores || []).forEach(j => {
+                countMap[j.evento_id] = (countMap[j.evento_id] || 0) + 1;
+            });
+        }
+
+        
+        const eventos = (data || []).map(e => ({
+            ...e,
+            total_participantes: countMap[e.id] || 0
+        }));
+
+        return { statusCode: 200, body: JSON.stringify(eventos) };
     } catch (error) {
         return { statusCode: 500, body: JSON.stringify({ message: error.message }) };
     }
@@ -145,16 +166,23 @@ export const obtener = async (event) => {
         const isOwner = await verifyClubAccess(clubId, userId);
         if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
 
-        // Obtener evento
+        // Obtener evento (el nombre del creador viene en metadata->nombre)
         const { data: evento, error: eventError } = await supabase
             .from('el_dep_club_eventos')
-            .select('*')
+            .select(`
+                *,
+                creador:creado_por (
+                    id,
+                    email,
+                    metadata
+                )
+            `)
             .eq('id', id)
             .single();
 
         if (eventError) throw eventError;
 
-        // Obtener jugadores del evento
+        // Obtener jugadores del evento (nombre del registrador en metadata->nombre)
         const { data: jugadores, error: playersError } = await supabase
             .from('el_dep_club_evento_jugadores')
             .select(`
@@ -163,6 +191,11 @@ export const obtener = async (event) => {
                     id,
                     nombre_completo,
                     folio
+                ),
+                registrador:registrado_por (
+                    id,
+                    email,
+                    metadata
                 )
             `)
             .eq('evento_id', id);
@@ -174,35 +207,41 @@ export const obtener = async (event) => {
         let total_pendiente = 0;
 
         const jugadoresFormatted = jugadores.map(j => {
-            if (j.estado_pago === 'pagado') {
+            if (j.estado_pago === 'pagado' || j.estado_pago === 'exento') {
                 total_pagado += (j.monto || 0);
             } else {
                 total_pendiente += (j.monto || 0);
             }
 
-            // Calcular estado cumplimiento (simplificado)
-            // Si pagado <= fecha_limite -> a_tiempo, else atrasado?
-            // User requirement: "Un jugador no es moroso si estado_pago = pagado"
-            // "Marca estado_cumplimiento" in register payment step.
-            // Here just return what is in DB.
             return {
                 jugador_id: j.jugador_id,
                 nombre: j.el_dep_jugadores?.nombre_completo,
-                numero_jugador: j.numero_jugador, // Or folio from player if not in pivot? Pivot usually has specific number for event? Prompt says "numero_jugador" in body of Add Player.
+                numero_jugador: j.numero_jugador,
                 estado_pago: j.estado_pago,
                 monto: j.monto,
+                motivo_exencion: j.motivo_exencion || null,
                 fecha_pago: j.fecha_pago,
-                estado_cumplimiento: j.estado_cumplimiento
+                estado_cumplimiento: j.estado_cumplimiento,
+                registrado_por: j.registrador?.metadata?.nombre || j.registrador?.email || null
             };
         });
+
+        const { creador: creadorRaw, ...eventoBase } = evento;
+        const creador = creadorRaw ? {
+            id: creadorRaw.id,
+            nombre: creadorRaw.metadata?.nombre || creadorRaw.email,
+            email: creadorRaw.email
+        } : null;
 
         return {
             statusCode: 200,
             body: JSON.stringify({
-                ...evento,
+                ...eventoBase,
+                creador,
                 resumen: {
                     total_pagado,
-                    total_pendiente
+                    total_pendiente,
+                    total_participantes: jugadoresFormatted.length
                 },
                 jugadores: jugadoresFormatted
             })
@@ -245,8 +284,9 @@ export const agregarJugador = async (event) => {
                 jugador_id,
                 numero_jugador,
                 estado_pago: 'pendiente',
-                monto: evento.costo_unitario, // Copiar costo
-                fecha_limite_pago: evento.fecha_limite_pago // Copiar fecha limite
+                monto: evento.costo_unitario,
+                fecha_limite_pago: evento.fecha_limite_pago,
+                registrado_por: userId
             }])
             .select()
             .single();
@@ -357,6 +397,7 @@ export const registrarPago = async (event) => {
                     monto: registro.monto,
                     descripcion: `Pago tardío evento ${id} - Jugador ${jugadorId}`,
                     fecha_movimiento: new Date().toISOString(),
+                    registrado_por: userId,
                     origen_id: id,
                     origen_tipo: 'evento_pago_atrasado'
                 }]);
@@ -365,6 +406,69 @@ export const registrarPago = async (event) => {
         return { statusCode: 200, body: JSON.stringify({ message: 'Pago registrado', estado_cumplimiento }) };
 
     } catch (error) {
+        return { statusCode: 500, body: JSON.stringify({ message: error.message }) };
+    }
+};
+
+const MOTIVOS_EXENCION_VALIDOS = [
+    'ya pago en planilla anterior',
+    'jugador repetido',
+    'otro motivo'
+];
+
+export const ajustarPago = async (event) => {
+    try {
+        const apiKeyValidation = validateApiKey(event);
+        if (!apiKeyValidation.valid) return apiKeyValidation.response;
+
+        const userId = getUserIdFromToken(event);
+        const { clubId, id, jugadorId } = event.pathParameters;
+
+        const isOwner = await verifyClubAccess(clubId, userId);
+        if (!isOwner) return { statusCode: 403, body: JSON.stringify({ message: 'No tienes permisos' }) };
+
+        const body = JSON.parse(event.body);
+        const { monto, motivo } = body;
+
+        if (monto === undefined || monto === null) {
+            return { statusCode: 400, body: JSON.stringify({ message: 'El campo monto es obligatorio' }) };
+        }
+        if (!motivo || !MOTIVOS_EXENCION_VALIDOS.includes(motivo)) {
+            return { statusCode: 400, body: JSON.stringify({ message: 'Motivo inválido', motivos_validos: MOTIVOS_EXENCION_VALIDOS }) };
+        }
+
+        const { data: evento } = await supabase
+            .from('el_dep_club_eventos')
+            .select('estado')
+            .eq('id', id)
+            .single();
+
+        if (evento?.estado === 'cerrado') {
+            return { statusCode: 400, body: JSON.stringify({ message: 'No se puede ajustar el pago de un evento cerrado' }) };
+        }
+
+        const montoNum = parseFloat(monto);
+        const estado_pago = montoNum <= 0 ? 'exento' : 'pendiente';
+
+        const { data, error } = await supabase
+            .from('el_dep_club_evento_jugadores')
+            .update({
+                monto: montoNum <= 0 ? 0 : montoNum,
+                motivo_exencion: motivo,
+                estado_pago,
+                fecha_pago: montoNum <= 0 ? new Date().toISOString() : null
+            })
+            .eq('evento_id', id)
+            .eq('jugador_id', jugadorId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        if (!data) return { statusCode: 404, body: JSON.stringify({ message: 'Jugador no encontrado en el evento' }) };
+
+        return { statusCode: 200, body: JSON.stringify({ message: 'Pago ajustado', data }) };
+    } catch (error) {
+        console.error(error);
         return { statusCode: 500, body: JSON.stringify({ message: error.message }) };
     }
 };
@@ -433,6 +537,7 @@ export const cerrar = async (event) => {
                 monto: totalATiempo,
                 descripcion: `Cierre evento: ${evento.titulo} (A tiempo)`,
                 fecha_movimiento: now,
+                registrado_por: userId,
                 origen_id: id,
                 origen_tipo: 'evento_cierre'
             });
@@ -446,6 +551,7 @@ export const cerrar = async (event) => {
                 monto: totalAtrasado,
                 descripcion: `Cierre evento: ${evento.titulo} (Pagos Atrasados)`,
                 fecha_movimiento: now,
+                registrado_por: userId,
                 origen_id: id,
                 origen_tipo: 'evento_cierre_atrasado'
             });
